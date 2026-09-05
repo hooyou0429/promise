@@ -1557,6 +1557,7 @@ function consumeItemEffect(p, tplId, opts){
 }
 
 /* ---------- RENDER ROOT ---------- */
+let _lastRenderedScreen = null;
 function render(){
   const app = document.getElementById('app');
   let html = '';
@@ -1570,7 +1571,10 @@ function render(){
   html += renderModal();
   app.innerHTML = html;
   bindEvents();
-  window.scrollTo(0,0);
+  if(state.screen !== _lastRenderedScreen){
+    window.scrollTo(0,0);
+    _lastRenderedScreen = state.screen;
+  }
 }
 
 function sceneBanner(title, sub){
