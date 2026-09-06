@@ -853,12 +853,13 @@ const ACCESSORIES = [
   {id:'ac6',name:'황금잉어의 반지',icon:'🐟',crit:8,spd:4,price:0,exclusive:true,kind:'ring'},
   {id:'ac7',name:'현자의 부엉이 눈',icon:'🦉',expMul:.2,price:3200,desc:'착용 중 획득 경험치 +20%.',kind:'trinket'},
   {id:'ac15',name:'만물의 인장',icon:'♾️',atk:16,def:16,crit:10,spd:10,hp:100,mp:50,price:12000,desc:'모든 능력치가 고르게 상승하는 최상급 장신구.',kind:'trinket'},
-  {id:'ac16',name:'생명력의 보주',icon:'🌙',hp:150,mp:80,price:2500,desc:'착용 중 최대 HP +150, 최대 MP +80.',kind:'trinket'},
+  {id:'ac16',name:'생명력의 보주',icon:'🌙',hp:150,mp:80,price:2500,desc:'착용 중 최대 HP +150, 최대 MP +80.',kind:'orb'},
 ];
 const ACCESSORY_KINDS = [
   {key:'ring', label:'반지'},
   {key:'neck', label:'목걸이/브로치'},
   {key:'trinket', label:'기타 장신구'},
+  {key:'orb', label:'보주'},
 ];
 // 펫: 한 번 구매하면 영구 소유하며, 소유한 펫 중 하나만 활성화해 효과를 받는다.
 // 가격이 높을수록 능력치 보너스와 회복 효과가 함께 커지는 사기성 있는 구성.
@@ -1159,7 +1160,7 @@ function equippedTpl(p, slot){
   if(!inst) return null;
   return {inst, tpl: findEquipTpl(inst.tplId)};
 }
-// 같은 kind가 아닌 장신구는 동시에 여러 개 착용할 수 있다.
+// 완전히 같은 장신구가 아니면 동시에 여러 개 착용할 수 있다.
 function equippedAccessories(p){
   return (p.equipped.accessories||[]).map(uid=>{
     const inst = p.inventory.find(i=>i.uid===uid);
@@ -2189,12 +2190,9 @@ function renderCharacter(){
       <div class="tile"><div class="tile-icon">${w?w.tpl.icon:'⬜'}</div><div class="tile-name">${w?`${w.inst.awakened?'★ ':''}${w.tpl.name} +${w.inst.enhanceLevel}${w.inst.fusionStars?` ✦${w.inst.fusionStars}`:''}`:'무기 없음'}</div></div>
       <div class="tile"><div class="tile-icon">${a?a.tpl.icon:'⬜'}</div><div class="tile-name">${a?a.tpl.name:'방어구 없음'}</div></div>
     </div>
-    <div class="section-sub" style="margin-top:10px;">장신구 (서로 다른 종류는 동시에 착용 가능)</div>
+    <div class="section-sub" style="margin-top:10px;">장신구 (완전히 같은 장신구만 아니면 여러 개 동시 착용 가능)</div>
     <div class="grid cols-3">
-      ${ACCESSORY_KINDS.map(k=>{
-        const found = accs.find(ac=>ac.tpl.kind===k.key);
-        return `<div class="tile"><div class="tile-icon">${found?found.tpl.icon:'⬜'}</div><div class="tile-name">${found?found.tpl.name:`${k.label} 없음`}</div></div>`;
-      }).join('')}
+      ${accs.length? accs.map(ac=>`<div class="tile"><div class="tile-icon">${ac.tpl.icon}</div><div class="tile-name">${ac.tpl.name}</div></div>`).join('') : `<div class="tile"><div class="tile-icon">⬜</div><div class="tile-name">장신구 없음</div></div>`}
     </div>
     <div class="section-sub" style="margin-top:10px;">펫</div>
     <div class="grid cols-3">
@@ -2795,11 +2793,10 @@ function handle(act, ds){
       const tpl = findEquipTpl(inst.tplId);
       const slot = equipSlotOf(tpl);
       if(slot==='accessory'){
-        // 같은 kind로 이미 착용한 장신구가 있다면 교체하고, 다른 kind는 그대로 유지한다.
+        // 완전히 같은 장신구(동일 tplId)만 교체하고, 나머지는 그대로 유지한다.
         p.equipped.accessories = p.equipped.accessories.filter(uid=>{
           const other = p.inventory.find(i=>i.uid===uid);
-          const otherTpl = other && findEquipTpl(other.tplId);
-          return !(otherTpl && otherTpl.kind===tpl.kind);
+          return !(other && other.tplId===inst.tplId);
         });
         p.equipped.accessories.push(inst.uid);
       } else {
