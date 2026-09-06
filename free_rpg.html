@@ -1150,6 +1150,7 @@ function weaponBonusAtk(inst, tpl){
   const lvl = inst.enhanceLevel||0;
   let mul = 1 + lvl*0.13;
   if(inst.awakened) mul *= 1.25;
+  mul *= 1 + (inst.fusionStars||0)*0.15;
   return Math.round(tpl.atk * mul);
 }
 
@@ -2108,7 +2109,7 @@ function renderCharacter(){
   <div class="panel">
     <div class="section-title" style="font-size:1rem;">장비</div>
     <div class="grid cols-3">
-      <div class="tile"><div class="tile-icon">${w?w.tpl.icon:'⬜'}</div><div class="tile-name">${w?`${w.inst.awakened?'★ ':''}${w.tpl.name} +${w.inst.enhanceLevel}`:'무기 없음'}</div></div>
+      <div class="tile"><div class="tile-icon">${w?w.tpl.icon:'⬜'}</div><div class="tile-name">${w?`${w.inst.awakened?'★ ':''}${w.tpl.name} +${w.inst.enhanceLevel}${w.inst.fusionStars?` ✦${w.inst.fusionStars}`:''}`:'무기 없음'}</div></div>
       <div class="tile"><div class="tile-icon">${a?a.tpl.icon:'⬜'}</div><div class="tile-name">${a?a.tpl.name:'방어구 없음'}</div></div>
     </div>
     <div class="section-sub" style="margin-top:10px;">장신구 (서로 다른 종류는 동시에 착용 가능)</div>
@@ -2186,7 +2187,8 @@ function modalWrap(title, body){
 function isWeaponTpl(tpl){ return Object.values(WEAPONS).flat().some(w=>w.id===tpl.id); }
 function itemDisplayName(inst, tpl){
   if(!isWeaponTpl(tpl)) return tpl.name;
-  return `${inst.awakened?'★ ':''}${tpl.name} <span class="tag accent">+${inst.enhanceLevel}</span>`;
+  const fusionTag = (inst.fusionStars||0)>0 ? ` <span class="tag accent">✦${inst.fusionStars}</span>` : '';
+  return `${inst.awakened?'★ ':''}${tpl.name} <span class="tag accent">+${inst.enhanceLevel}</span>${fusionTag}`;
 }
 
 function renderInventoryModal(){
@@ -2249,30 +2251,27 @@ function renderBlacksmithModal(){
   }).join('') : `<p class="empty-note">강화할 수 있는 무기가 없습니다. 잡화점이나 전투에서 무기를 획득하세요.</p>`}
   <div class="divider"></div>
   <div class="section-title" style="font-size:1rem;">🔗 무기 합성</div>
-  <p class="section-sub">같은 무기를 2자루 이상 보유하면, 여분의 무기를 재료로 삼아 다른 한 자루의 강화 단계를 실패 없이 +1 올릴 수 있습니다. 재료로 사용한 무기는 사라집니다. (장착 중인 무기는 항상 남습니다)</p>
+  <p class="section-sub">같은 무기를 재료로 합성해 별을 채우세요. 별 하나당 위력 +15%, 최대 5성(★+75%)까지 강해집니다. 합성할 때마다 다음 별에 필요한 재료 무기 수가 1개씩 늘어납니다. (장착 중인 무기가 있으면 항상 그 무기가 합성 대상이 됩니다)</p>
   ${(()=>{
     const groups = {};
     weapons.forEach(inst=>{ (groups[inst.tplId] = groups[inst.tplId]||[]).push(inst); });
-    const fusable = Object.values(groups).filter(g=>g.length>=2);
-    if(!fusable.length) return `<p class="empty-note">합성 가능한 여분의 무기가 없습니다. 같은 무기를 2자루 이상 모아보세요.</p>`;
-    return fusable.map(g=>{
+    const list = Object.values(groups);
+    if(!list.length) return `<p class="empty-note">합성할 수 있는 무기가 없습니다. 잡화점이나 전투에서 무기를 획득하세요.</p>`;
+    return list.map(g=>{
       const tpl = findEquipTpl(g[0].tplId);
       const equippedUid = p.equipped.weapon;
-      const equippedInGroup = g.find(i=>i.uid===equippedUid);
-      let keeper, material;
-      if(equippedInGroup){
-        keeper = equippedInGroup;
-        material = g.find(i=>i.uid!==equippedUid);
-      } else {
-        const sorted = [...g].sort((x,y)=>y.enhanceLevel-x.enhanceLevel);
-        keeper = sorted[0]; material = sorted[1];
-      }
-      const maxed = keeper.enhanceLevel>=15;
-      return `<div class="item-row">
+      const keeper = g.find(i=>i.uid===equippedUid) || [...g].sort((x,y)=>(y.fusionStars||0)-(x.fusionStars||0) || y.enhanceLevel-x.enhanceLevel)[0];
+      const stars = keeper.fusionStars||0;
+      const maxed = stars>=5;
+      const need = stars+1;
+      const materialsAvail = g.length-1;
+      const can = !maxed && materialsAvail>=need;
+      const starDisplay = '★'.repeat(stars) + '☆'.repeat(5-stars);
+      return `<div class="item-row" style="flex-wrap:wrap;">
         <div class="item-icon">${tpl.icon}</div>
         <div class="item-body"><div class="item-name">${tpl.name} <span class="tag">보유 x${g.length}</span></div>
-        <div class="item-meta">${maxed? '이미 최대 강화 단계입니다.' : `현재 최고 +${keeper.enhanceLevel} 무기에 여분 1자루를 합성해 +${keeper.enhanceLevel+1}(으)로`}</div></div>
-        <div class="item-actions"><button class="btn small primary" data-act="fuse-weapon" data-keep="${keeper.uid}" data-material="${material.uid}" ${maxed?'disabled':''}>합성</button></div>
+        <div class="item-meta">${starDisplay} (${stars}/5, 위력 +${stars*15}%)${maxed? ' · 최대 합성 완료':` · 다음 별까지 재료 ${materialsAvail}/${need}`}</div></div>
+        <div class="item-actions"><button class="btn small primary" data-act="fuse-weapon" data-keep="${keeper.uid}" ${can?'':'disabled'}>${maxed?'최대':'합성'}</button></div>
       </div>`;
     }).join('');
   })()}
@@ -2750,12 +2749,17 @@ function handle(act, ds){
     }
     case 'fuse-weapon': {
       const keep = p.inventory.find(i=>i.uid===ds.keep);
-      const material = p.inventory.find(i=>i.uid===ds.material);
-      if(!keep || !material || keep.uid===material.uid || keep.enhanceLevel>=15){ break; }
-      keep.enhanceLevel = Math.min(15, keep.enhanceLevel+1);
-      p.inventory = p.inventory.filter(i=>i.uid!==material.uid);
+      if(!keep) break;
+      const stars = keep.fusionStars||0;
+      if(stars>=5) break;
+      const need = stars+1;
+      const materials = p.inventory.filter(i=>i.enhanceLevel!==undefined && i.tplId===keep.tplId && i.uid!==keep.uid);
+      if(materials.length<need){ toast('합성 재료 무기가 부족합니다.','bad'); break; }
+      const consumeUids = new Set(materials.slice(0, need).map(i=>i.uid));
+      p.inventory = p.inventory.filter(i=>!consumeUids.has(i.uid));
+      keep.fusionStars = stars+1;
       const tpl = findEquipTpl(keep.tplId);
-      toast(`${tpl.name} 합성 성공! 강화 +${keep.enhanceLevel}`,'good');
+      toast(`${tpl.name} 합성 성공! ★${keep.fusionStars} (위력 +${keep.fusionStars*15}%)`,'good');
       const st = effectiveStats(p); p.hp=Math.min(p.hp,st.maxHp); p.mp=Math.min(p.mp,st.maxMp);
       saveGame(true); render();
       break;
