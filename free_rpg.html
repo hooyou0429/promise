@@ -1360,27 +1360,38 @@ const BOSS_TIERS = {
   mid:   {hp:2.3, atk:1.5,  def:1.44, exp:2.3, gold:2.7, spd:1.05, crit:10},
   final: {hp:4.4, atk:1.55, def:2.1, exp:5.5, gold:6.5, spd:1.15, crit:14},
 };
+// 폭염의 화산부터 그 이후 지역(심연의 균열, 무너진 천공도시, 용맥의 성소, 시간 너머의 폐허, 태초의 성역)은
+// 보스(중간 보스·진보스 모두)의 체력/공격력/방어력을 300% 증가(기존의 4배)시킨다.
+const HARD_ZONE_FROM = 'volcano';
+const HARD_ZONE_BOSS_MULT = 4;
+function isHardZone(zoneId){
+  const fromIdx = ZONES.findIndex(z=>z.id===HARD_ZONE_FROM);
+  const idx = ZONES.findIndex(z=>z.id===zoneId);
+  return idx>=0 && fromIdx>=0 && idx>=fromIdx;
+}
 // 로스트아크식 다단 체력바: 레벨이 높은 보스일수록 체력바를 2~3번 비워야 처치할 수 있다.
-function bossBarCount(level, tier){
+// 폭염의 화산 이후 지역의 보스는 강화된 맷집에 맞춰 체력바를 1줄 더 얻되, 최대 3줄을 넘지 않는다.
+function bossBarCount(level, tier, zoneId){
   if(!tier) return 1;
-  if(level>=100) return 3;
-  if(level>=50) return 2;
-  return 1;
+  let n = level>=100 ? 3 : (level>=50 ? 2 : 1);
+  if(zoneId && isHardZone(zoneId)) n = Math.min(3, n+1);
+  return n;
 }
 function spawnMonsterFromTemplate(tpl, level, bossTier, zoneId){
   const b = baseMonsterStats(level);
   const tier = bossTier===true ? 'final' : (bossTier || null);
   // 일반 잡몹이 너무 약하다는 피드백에 따라 (보스가 아닌) 잡몹의 체력/방어력을 별도로 상향한다.
   const bm = tier ? BOSS_TIERS[tier] : {hp:1.2,atk:1,def:1.25,exp:1,gold:1,spd:1,crit:6};
-  const barCount = bossBarCount(level, tier);
-  const hpTotal = Math.round(b.hp*tpl.hp*bm.hp) * barCount;
+  const barCount = bossBarCount(level, tier, zoneId);
+  const hardMult = (tier && isHardZone(zoneId)) ? HARD_ZONE_BOSS_MULT : 1;
+  const hpTotal = Math.round(b.hp*tpl.hp*bm.hp*hardMult) * barCount;
   return {
     name:tpl.name, icon:tpl.icon, level, zoneId, isBoss:!!tier, bossTier:tier,
     maxHp: hpTotal,
     hp: hpTotal,
     barCount, barsRemaining: barCount,
-    atk: Math.round(b.atk*tpl.atk*bm.atk),
-    def: Math.round(b.def*tpl.def*bm.def),
+    atk: Math.round(b.atk*tpl.atk*bm.atk*hardMult),
+    def: Math.round(b.def*tpl.def*bm.def*hardMult),
     spd: Math.round(b.spd*tpl.spd*bm.spd),
     critChance: bm.crit,
     exp: Math.round(b.exp*bm.exp),
