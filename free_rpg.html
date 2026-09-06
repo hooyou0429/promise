@@ -502,6 +502,8 @@ Object.values(CLASSES).forEach(cls=>{
   cls.base.def = Math.round(cls.base.def*0.90);
   cls.base.hp = Math.round(cls.base.hp*0.92);
 });
+// 레벨당 체력 증가량을 대폭 상승시켜 레벨업에 따른 생존력 성장을 크게 강화한다.
+Object.values(CLASSES).forEach(cls=>{ cls.growth.hp = Math.round(cls.growth.hp*3*10)/10; });
 
 /* ---------- CHARACTER PORTRAITS (cropped from user-provided character sheets) ---------- */
 const PORTRAITS = {
