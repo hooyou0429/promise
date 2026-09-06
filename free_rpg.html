@@ -1309,7 +1309,8 @@ const BOSS_TIERS = {
 function spawnMonsterFromTemplate(tpl, level, bossTier, zoneId){
   const b = baseMonsterStats(level);
   const tier = bossTier===true ? 'final' : (bossTier || null);
-  const bm = tier ? BOSS_TIERS[tier] : {hp:1,atk:1,def:1,exp:1,gold:1,spd:1,crit:6};
+  // 일반 잡몹이 너무 약하다는 피드백에 따라 (보스가 아닌) 잡몹의 체력/방어력을 별도로 상향한다.
+  const bm = tier ? BOSS_TIERS[tier] : {hp:1.2,atk:1,def:1.25,exp:1,gold:1,spd:1,crit:6};
   return {
     name:tpl.name, icon:tpl.icon, level, zoneId, isBoss:!!tier, bossTier:tier,
     maxHp: Math.round(b.hp*tpl.hp*bm.hp),
