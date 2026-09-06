@@ -978,10 +978,16 @@ function rollFishCatch(p, baitId){
 }
 const FOODS = {
   bread:{id:'bread',name:'호밀빵',icon:'🍞',price:15,healPct:.15,desc:'즉시 최대 HP의 15%를 회복한다.'},
+  gimbap:{id:'gimbap',name:'든든한 김밥',icon:'🍙',price:25,heal:50,desc:'HP를 50 회복한다.'},
+  naengmyeon:{id:'naengmyeon',name:'냉면 한 그릇',icon:'🍜',price:50,mp:80,desc:'MP를 80 회복한다.'},
   stew:{id:'stew',name:'스태미나 스튜',icon:'🍲',price:60,buff:{atk:.15},battles:5,desc:'5전투 동안 공격력 +15%.'},
   tea:{id:'tea',name:'마나차',icon:'🍵',price:45,mpFull:true,desc:'MP를 완전히 회복한다.'},
   skewer:{id:'skewer',name:'축제 꼬치구이',icon:'🍢',price:70,buff:{expMul:.25},battles:5,desc:'5전투 동안 획득 경험치 +25%.'},
+  gomtang:{id:'gomtang',name:'진한 곰탕',icon:'🥣',price:90,buff:{def:.15},battles:5,desc:'5전투 동안 방어력 +15%.'},
+  ginsengWine:{id:'ginsengWine',name:'산삼주',icon:'🍶',price:120,buff:{crit:.1},battles:4,desc:'4전투 동안 치명타 확률 +10%.'},
+  bulgogiSet:{id:'bulgogiSet',name:'불고기 정식',icon:'🍖',price:140,heal:200,buff:{atk:.1},battles:3,desc:'즉시 HP 200 회복 + 3전투 동안 공격력 +10%.'},
   feast:{id:'feast',name:"용사의 만찬",icon:'🍗',price:180,fullRestore:true,buff:{atk:.1,def:.1},battles:3,desc:'HP·MP 완전 회복 + 3전투 동안 공/방 +10%.'},
+  grandFeast:{id:'grandFeast',name:'대향연 한상',icon:'🥘',price:300,fullRestore:true,buff:{atk:.15,def:.15,spd:.15},battles:5,desc:'HP·MP 완전 회복 + 5전투 동안 공/방/속 +15%.'},
 };
 
 /* ---------- ACHIEVEMENTS ---------- */
