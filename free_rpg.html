@@ -955,11 +955,11 @@ const FISHING_RODS = [
 ];
 function fishingRodTierIndex(p){ return FISHING_RODS.findIndex(r=>r.id===p.fishingRod); }
 function currentFishingRod(p){ const idx = fishingRodTierIndex(p); return idx>=0 ? FISHING_RODS[idx] : null; }
-// 낚시찌 등급별 확률표: [잡동사니, 물고기, 강화석, 물약, 전설의 황금잉어]
+// 낚시찌 등급별 확률표: [잡동사니, 물고기, 강화석, 물약, 스킬북, 전설의 황금잉어]
 const FISH_TABLES = {
-  baitBasic:  [0.40,0.40,0.11,0.07,0.02],
-  baitSilver: [0.24,0.46,0.16,0.10,0.04],
-  baitGold:   [0.10,0.40,0.24,0.14,0.12],
+  baitBasic:  [0.36,0.38,0.10,0.07,0.07,0.02],
+  baitSilver: [0.20,0.42,0.15,0.10,0.09,0.04],
+  baitGold:   [0.08,0.32,0.22,0.13,0.13,0.12],
 };
 function rollFishCatch(p, baitId){
   const bait = CONSUMABLES[baitId] || CONSUMABLES.baitBasic;
@@ -973,6 +973,7 @@ function rollFishCatch(p, baitId){
     case 1: { const g=Math.round(rndInt(18,42)*1.7*goldMul); p.gold+=g; return `싱싱한 물고기를 낚아 팔았습니다. 💰+${g}`; }
     case 2: { addItem(p,'enhanceStone',1); return '강화석을 낚았습니다!'; }
     case 3: { addItem(p,'hpPotionS',1); return '물속에서 물약을 건졌습니다!'; }
+    case 4: { const book = pick(SKILL_BOOKS); addItem(p,book.id,1); return `물속에서 스킬북 「${book.name}」을(를) 건졌습니다!`; }
     default: { p.inventory.push({uid:newUid(), tplId:'ac6', enhanceLevel:0}); return '전설의 황금잉어를 낚았습니다! 특별한 장신구를 얻었습니다!'; }
   }
 }
@@ -989,6 +990,29 @@ const FOODS = {
   feast:{id:'feast',name:"용사의 만찬",icon:'🍗',price:180,fullRestore:true,buff:{atk:.1,def:.1},battles:3,desc:'HP·MP 완전 회복 + 3전투 동안 공/방 +10%.'},
   grandFeast:{id:'grandFeast',name:'대향연 한상',icon:'🥘',price:300,fullRestore:true,buff:{atk:.15,def:.15,spd:.15},battles:5,desc:'HP·MP 완전 회복 + 5전투 동안 공/방/속 +15%.'},
 };
+
+// 낚시로만 얻을 수 있는 스킬북. 특수 스킬(MP 소모, 레벨 제한)과 달리 MP를 소모하지 않고,
+// 한번 배우면(인벤토리에서 "배우기") 그 캐릭터가 영구적으로 사용할 수 있는 전투 행동이 된다.
+// 다른 행동과 마찬가지로 한 턴에 한 번만 사용할 수 있을 뿐, 총 사용 횟수 제한은 없다.
+const SKILL_BOOKS = [
+  {id:'sb1',name:'명상',icon:'🧘',type:'buff',buff:{def:0.2},dur:3,healSelf:0.25,desc:'즉시 최대 HP의 25%를 회복하고, 3턴간 방어력이 20% 상승한다.'},
+  {id:'sb2',name:'기습',icon:'🗡️',type:'phys',power:1.0,selfBuff:{atk:2.0},selfBuffDur:1,desc:'허를 찔러 이번 턴 공격력이 200% 증가한 상태로 강습한다.'},
+  {id:'sb3',name:'연막',icon:'💨',type:'buff',buff:{dodge:0.3},dur:2,desc:'2턴간 회피율이 30% 상승한다.'},
+  {id:'sb4',name:'투기 충전',icon:'🔥',type:'buff',buff:{atk:0.4},dur:3,desc:'3턴간 공격력이 40% 상승한다.'},
+  {id:'sb5',name:'철벽 태세',icon:'🛡️',type:'buff',buff:{def:0.45},dur:3,desc:'3턴간 방어력이 45% 상승한다.'},
+  {id:'sb6',name:'신속한 발놀림',icon:'👟',type:'buff',buff:{spd:0.5},dur:2,desc:'2턴간 속도가 50% 상승한다.'},
+  {id:'sb7',name:'정신 집중',icon:'🎯',type:'buff',buff:{crit:0.2},dur:3,desc:'3턴간 치명타 확률이 20%p 상승한다.'},
+  {id:'sb8',name:'심호흡',icon:'🌬️',type:'buff',buff:{},healSelf:0.35,desc:'즉시 최대 HP의 35%를 회복한다.'},
+  {id:'sb9',name:'광전사의 함성',icon:'💢',type:'buff',buff:{atk:0.6,def:-0.2},dur:2,desc:'2턴간 공격력이 60% 상승하지만 방어력이 20% 하락한다.'},
+  {id:'sb10',name:'흡혈의 일격',icon:'🩸',type:'phys',power:1.2,lifesteal:0.4,desc:'적을 베어 입힌 피해의 40%만큼 HP를 흡수한다.'},
+  {id:'sb11',name:'회심의 일격',icon:'💥',type:'phys',power:1.3,alwaysCrit:true,desc:'빈틈을 정확히 노려 반드시 치명타가 터진다.'},
+  {id:'sb12',name:'그림자 밟기',icon:'👤',type:'buff',buff:{dodge:0.25,spd:0.2},dur:2,desc:'2턴간 회피율 +25%, 속도 +20%.'},
+  {id:'sb13',name:'결의의 외침',icon:'📣',type:'buff',buff:{atk:0.25,crit:0.15},dur:3,desc:'3턴간 공격력 +25%, 치명타 확률 +15%p.'},
+  {id:'sb14',name:'재생의 주문',icon:'💚',type:'buff',buff:{},healSelf:0.4,desc:'즉시 최대 HP의 40%를 회복한다.'},
+  {id:'sb15',name:'방패 가르기',icon:'🔨',type:'phys',power:1.1,pierce:0.3,desc:'적의 방어를 30% 무시하고 강타한다.'},
+  {id:'sb16',name:'궁극의 회피술',icon:'🌀',type:'buff',buff:{dodge:0.5},dur:1,desc:'1턴간 회피율이 50%로 크게 상승한다.'},
+];
+function skillBookTpl(id){ return SKILL_BOOKS.find(b=>b.id===id); }
 
 /* ---------- ACHIEVEMENTS ---------- */
 const MAX_LEVEL = 150;
@@ -1174,6 +1198,7 @@ function newPlayer(name, classKey){
     arenaStreak:0,
     arenaBestStreak:0,
     boostedSkills:[],
+    learnedSkillBooks:[],
     statPoints:0,
     bonusStats:{hp:0,mp:0,crit:0},
     fishingRod:null,
@@ -1650,6 +1675,35 @@ function playerAction(action){
       const heal = Math.round(st.maxHp*skill.healSelf);
       p.hp = clamp(p.hp+heal,0,st.maxHp);
       combatLog(`신성한 힘으로 HP <span class="heal">${heal}</span> 회복`, 'heal');
+    }
+  } else if(action.type==='skillbook'){
+    // 스킬북 기술: MP를 소모하지 않고, 레벨/강화 시스템의 영향도 받지 않는 고정 위력의 기술이다.
+    const skill = action.skill;
+    if(skill.selfBuff){ applyPlayerBuff(skill.selfBuff, skill.selfBuffDur||1); }
+    if(skill.type==='phys' || skill.type==='magic'){
+      const hits = skill.hits||1;
+      let total=0, anyCrit=false;
+      for(let i=0;i<hits;i++){
+        if(c.enemy.hp<=0) break;
+        const r = playerDamageRoll(skill.power, skill.pierce||0, skill.alwaysCrit, skill.type==='magic', hits);
+        c.enemy.hp = clamp(c.enemy.hp - r.dmg, 0, c.enemy.maxHp);
+        total += r.dmg; anyCrit = anyCrit||r.crit;
+      }
+      c.enemyHitFx = true;
+      combatLog(`<b>${p.name}</b>의 스킬북 <b>${skill.name}</b>! ${enemy_name(c)}에게 <span class="dmg">${total}</span> 피해${anyCrit?' (치명타!)':''}`, 'dmg');
+      if(skill.lifesteal && total>0){
+        const heal = Math.round(total*skill.lifesteal);
+        p.hp = clamp(p.hp+heal,0,st.maxHp);
+        combatLog(`생명력을 흡수해 HP <span class="heal">${heal}</span> 회복`, 'heal');
+      }
+    } else if(skill.type==='buff'){
+      applyPlayerBuff(skill.buff, skill.dur||3);
+      combatLog(`<b>${p.name}</b>이(가) 스킬북 <b>${skill.name}</b>을(를) 사용했다!`, 'info');
+    }
+    if(skill.healSelf){
+      const heal = Math.round(st.maxHp*skill.healSelf);
+      p.hp = clamp(p.hp+heal,0,st.maxHp);
+      combatLog(`HP <span class="heal">${heal}</span> 회복`, 'heal');
     }
   } else if(action.type==='item'){
     consumeItemEffect(p, action.item.tplId, {inCombat:true});
@@ -2223,6 +2277,11 @@ function renderCombat(){
         const mpCost = skillMpCost(s, p.level);
         return `<button class="btn small" data-act="combat-skill" data-id="${s.id}" ${p.mp<mpCost?'disabled':''} title="${escapeHtml(s.desc)}">${boosted?'★ ':''}${s.name} <span class="font-mono" style="opacity:.65;">MP${mpCost}</span></button>`;
       }).join('')}
+      ${(p.learnedSkillBooks||[]).map(id=>{
+        const s = skillBookTpl(id);
+        if(!s) return '';
+        return `<button class="btn small" data-act="combat-skillbook" data-id="${s.id}" title="${escapeHtml(s.desc)}">📖 ${s.name}</button>`;
+      }).join('')}
       <button class="btn small" data-act="combat-open-items">🎒 아이템</button>
       <button class="btn small" data-act="combat-defend">🛡️ 방어</button>
       <button class="btn small danger" data-act="combat-flee">💨 도망</button>
@@ -2350,7 +2409,8 @@ function itemDisplayName(inst, tpl){
 function renderInventoryModal(){
   const p = state.player;
   const equipRows = p.inventory.filter(i=>i.enhanceLevel!==undefined);
-  const stackRows = p.inventory.filter(i=>i.enhanceLevel===undefined);
+  const stackRows = p.inventory.filter(i=>i.enhanceLevel===undefined && !skillBookTpl(i.tplId));
+  const skillBookRows = p.inventory.filter(i=>i.enhanceLevel===undefined && skillBookTpl(i.tplId));
   return `
   <img class="facility-banner" src="${TOWN_IMAGES.bag.banner}" alt="가방"/>
   <div class="section-sub">장비</div>
@@ -2379,6 +2439,17 @@ function renderInventoryModal(){
       <div class="item-actions">${(tpl.type!=='material' && tpl.type!=='bait')? `<button class="btn small primary" data-act="use-item" data-tpl="${row.tplId}">사용</button>`:''}</div>
     </div>`;
   }).join('') : `<p class="empty-note">보유한 소비 아이템이 없습니다.</p>`}
+  <div class="divider"></div>
+  <div class="section-sub">스킬북 (낚시로만 얻을 수 있으며, 한 번 배우면 영구적으로 사용할 수 있습니다)</div>
+  ${skillBookRows.length? skillBookRows.map(row=>{
+    const tpl = skillBookTpl(row.tplId);
+    const learned = (p.learnedSkillBooks||[]).includes(tpl.id);
+    return `<div class="item-row">
+      <div class="item-icon">${tpl.icon}</div>
+      <div class="item-body"><div class="item-name">${tpl.name} <span class="tag">x${row.qty}</span> ${learned?'<span class="tag good">습득함</span>':''}</div><div class="item-meta">${tpl.desc}</div></div>
+      <div class="item-actions">${learned?`<span class="tag">이미 습득</span>`:`<button class="btn small primary" data-act="learn-skillbook" data-tpl="${row.tplId}">배우기</button>`}</div>
+    </div>`;
+  }).join('') : `<p class="empty-note">보유한 스킬북이 없습니다. 낚시터에서 낚아보세요!</p>`}
   `;
 }
 
@@ -2703,7 +2774,7 @@ function renderArenaModal(){
 }
 function renderCombatItemsModal(){
   const p = state.player;
-  const usable = p.inventory.filter(i=> i.enhanceLevel===undefined && consumableTpl(i.tplId).type==='potion');
+  const usable = p.inventory.filter(i=> i.enhanceLevel===undefined && !skillBookTpl(i.tplId) && consumableTpl(i.tplId).type==='potion');
   return usable.length? usable.map(row=>{
     const tpl = consumableTpl(row.tplId);
     return `<div class="item-row">
@@ -2834,6 +2905,11 @@ function handle(act, ds){
       if(skill) playerAction({type:'skill', skill});
       break;
     }
+    case 'combat-skillbook': {
+      const skill = (p.learnedSkillBooks||[]).includes(ds.id) ? skillBookTpl(ds.id) : null;
+      if(skill) playerAction({type:'skillbook', skill});
+      break;
+    }
     case 'combat-open-items': state.modal='combat-items'; render(); break;
     case 'use-combat-item': {
       const row = p.inventory.find(i=>i.tplId===ds.tpl && i.enhanceLevel===undefined);
@@ -2902,6 +2978,16 @@ function handle(act, ds){
     }
     case 'use-item': {
       consumeItemEffect(p, ds.tpl, {inCombat:false});
+      saveGame(true); render();
+      break;
+    }
+    case 'learn-skillbook': {
+      const tpl = skillBookTpl(ds.tpl);
+      if(!tpl) break;
+      p.learnedSkillBooks = p.learnedSkillBooks||[];
+      if(!p.learnedSkillBooks.includes(tpl.id)) p.learnedSkillBooks.push(tpl.id);
+      removeItem(p, tpl.id, 1);
+      toast(`스킬북 「${tpl.name}」을(를) 습득했습니다!`,'good');
       saveGame(true); render();
       break;
     }
@@ -3135,6 +3221,7 @@ function hydratePlayer(saved){
   saved.arenaStreak = saved.arenaStreak||0;
   saved.arenaBestStreak = saved.arenaBestStreak||0;
   saved.boostedSkills = saved.boostedSkills||[];
+  saved.learnedSkillBooks = saved.learnedSkillBooks||[];
   saved.statPoints = saved.statPoints||0;
   saved.bonusStats = saved.bonusStats||{hp:0,mp:0,crit:0};
   // 구버전 저장 데이터 호환: 낚싯대 소유 여부가 boolean이었던 시절의 저장을 기본 낚싯대로 변환.
