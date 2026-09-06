@@ -851,6 +851,7 @@ const CONSUMABLES = {
   antidote:{id:'antidote',name:'해독제',icon:'🍃',price:20,type:'potion',cure:true,desc:'중독 상태를 치료한다.'},
   enhanceStone:{id:'enhanceStone',name:'강화석',icon:'💎',price:35,type:'material',desc:'무기 강화에 사용되는 재료.'},
   transcendEssence:{id:'transcendEssence',name:'초월의 정수',icon:'🌟',price:0,type:'material',desc:'보스만이 남기는 신비한 정수. 초월(3차 전직)에 필요하다.'},
+  skillShard:{id:'skillShard',name:'스킬의 파편',icon:'🧿',price:0,type:'material',desc:'몬스터가 드물게 남기는 신비한 파편. 스킬 강화에 사용된다.'},
   baitBasic:{id:'baitBasic',name:'일반 낚시찌',icon:'🪱',price:8,type:'bait',difficulty:1,goldMul:1,desc:'평범한 낚시찌. 입질은 순하지만 큰 수확은 기대하기 어렵다.'},
   baitSilver:{id:'baitSilver',name:'은빛 낚시찌',icon:'🔷',price:28,type:'bait',difficulty:1.6,goldMul:1.15,desc:'입질이 다소 거칠어지지만 더 좋은 것이 낚인다.'},
   baitGold:{id:'baitGold',name:'황금 낚시찌',icon:'🟡',price:75,type:'bait',difficulty:2.3,goldMul:1.35,desc:'가장 사나운 손맛. 희귀한 보물이 낚일 확률이 크게 오른다.'},
@@ -913,11 +914,11 @@ function maxEnhanceLevel(p){
 
 /* ---------- ENHANCEMENT TABLE ---------- */
 function enhanceSuccessRate(lvl){
-  if(lvl<5) return .90;
-  if(lvl<8) return .72;
-  if(lvl<11) return .52;
-  if(lvl<14) return .33;
-  return .20;
+  if(lvl<5) return .82;
+  if(lvl<8) return .64;
+  if(lvl<11) return .45;
+  if(lvl<14) return .27;
+  return .15;
 }
 function enhanceCost(lvl){
   return {gold:Math.round(40*Math.pow(lvl+1,1.6)), stones:1+Math.floor(lvl/4)};
@@ -1012,6 +1013,7 @@ function newPlayer(name, classKey){
     statPoints:0,
     bonusStats:{hp:0,mp:0,crit:0},
     fishingRod:false,
+    skillLevels:{},
   };
 }
 
@@ -1341,11 +1343,18 @@ function decrementPersistentBuffs(p){
     .filter(b=> !b.persistent || b.battlesLeft>0);
 }
 
-// 레벨이 오를수록 스킬 MP 소모량이 크게 늘어난다 (레벨1 기준, 레벨당 +3.5%).
-// 예) 레벨50 약 2.7배, 레벨100 약 4.5배, 레벨150 약 6.2배의 MP가 필요.
 function skillMpCost(skill, level){
-  const mul = 1 + Math.max(0, (level||1)-1) * 0.035;
-  return Math.max(1, Math.round(skill.mp * mul));
+  return skill.mp;
+}
+// 스킬 강화: 스킬의 파편을 사용해 스킬별로 최대 5단계까지 위력을 올릴 수 있다 (단계당 +8%).
+const SKILL_MAX_LEVEL = 5;
+const SKILL_DMG_MULT = 0.5; // 특수공격(스킬) 위력 50% 감소
+function skillLevel(p, skillId){ return (p.skillLevels||{})[skillId] || 0; }
+function skillEnhanceCost(lvl){ return lvl+1; }
+function skillPowerMul(p, skill){
+  const boosted = (p.boostedSkills||[]).includes(skill.id);
+  const lvl = skillLevel(p, skill.id);
+  return (boosted?1.3:1) * (1 + lvl*0.08);
 }
 function playerAction(action){
   const c = state.combat;
@@ -1390,7 +1399,7 @@ function playerAction(action){
     if(p.mp < mpCost){ toast('MP가 부족합니다.','bad'); return; }
     p.mp -= mpCost;
     const boosted = (p.boostedSkills||[]).includes(skill.id);
-    const powerMul = boosted ? 1.3 : 1;
+    const powerMul = skillPowerMul(p, skill) * SKILL_DMG_MULT;
     if(skill.type==='phys' || skill.type==='magic'){
       const hits = skill.hits||1;
       let total=0, anyCrit=false;
@@ -1412,7 +1421,7 @@ function playerAction(action){
         combatLog(`생명력을 흡수해 HP <span class="heal">${heal}</span> 회복`, 'heal');
       }
     } else if(skill.type==='heal'){
-      const heal = Math.round(st.maxHp*0.08 + st.atk*skill.power);
+      const heal = Math.round((st.maxHp*0.08 + st.atk*skill.power) * skillPowerMul(p, skill));
       p.hp = clamp(p.hp+heal,0,st.maxHp);
       combatLog(`<b>${p.name}</b>의 <b>${skill.name}</b>! HP <span class="heal">${heal}</span> 회복`, 'heal');
     } else if(skill.type==='buff'){
@@ -1603,6 +1612,18 @@ function resolveVictory(){
       p.inventory.push({uid:newUid(),tplId:a.id,enhanceLevel:0});
       combatLog(`전리품으로 <b>${a.name}</b>을(를) 얻었다!`, 'info');
     }
+  }
+
+  // 스킬의 파편: 보스는 확정, 그 외 몬스터는 낮은 확률로 드랍한다.
+  if(c.enemy.bossTier==='final'){
+    addItem(p,'skillShard', rndInt(2,3));
+    combatLog('진보스로부터 <b>스킬의 파편</b>을 얻었다!', 'info');
+  } else if(c.enemy.bossTier==='mid'){
+    addItem(p,'skillShard', 1);
+    combatLog('중간 보스로부터 <b>스킬의 파편</b>을 얻었다!', 'info');
+  } else if(Math.random()<0.06){
+    addItem(p,'skillShard',1);
+    combatLog('<b>스킬의 파편</b>을 주웠다!', 'info');
   }
 
   if(c.origin==='stage'){
@@ -2008,10 +2029,15 @@ function renderCharacter(){
     </div>
   </div>
   <div class="panel">
-    <div class="section-title" style="font-size:1rem;">보유 스킬</div>
+    <div class="section-title" style="font-size:1rem;">보유 스킬 <span class="tag accent">🧿 스킬의 파편 x${itemCount(p,'skillShard')}</span></div>
+    <p class="section-sub">스킬의 파편으로 스킬 위력을 단계당 +8%, 최대 5단계까지 강화할 수 있습니다.</p>
     ${skills.map(s=>{
       const boosted = (p.boostedSkills||[]).includes(s.id);
-      return `<div class="skill-btn"><div><div class="sname">${boosted?'★ ':''}${s.name}${boosted?' <span class="tag accent">각성</span>':''}</div><div class="sdesc">${s.desc}</div></div><div class="scost font-mono">MP ${skillMpCost(s, p.level)}</div></div>`;
+      const lvl = skillLevel(p, s.id);
+      const maxed = lvl>=SKILL_MAX_LEVEL;
+      const cost = skillEnhanceCost(lvl);
+      const can = !maxed && itemCount(p,'skillShard')>=cost;
+      return `<div class="skill-btn" style="flex-wrap:wrap;"><div><div class="sname">${boosted?'★ ':''}${s.name}${boosted?' <span class="tag accent">각성</span>':''} <span class="tag">강화 ${lvl}/${SKILL_MAX_LEVEL}</span></div><div class="sdesc">${s.desc}</div></div><div class="scost font-mono">MP ${skillMpCost(s, p.level)}</div><div class="item-actions">${maxed? `<span class="tag good">최대</span>` : `<button class="btn small primary" data-act="enhance-skill" data-id="${s.id}" ${can?'':'disabled'}>강화(🧿${cost})</button>`}</div></div>`;
     }).join('') || `<p class="empty-note">아직 배운 스킬이 없습니다.</p>`}
     ${nextSkill? `<p class="section-sub">다음 스킬: <b>${nextSkill.name}</b> (Lv.${nextSkill.lvl}${nextSkill.tierReq?`, 초월 필요`:''})</p>`:''}
   </div>
@@ -2403,6 +2429,19 @@ function handle(act, ds){
       saveGame(true); render();
       break;
     }
+    case 'enhance-skill': {
+      const skillId = ds.id;
+      const lvl = skillLevel(p, skillId);
+      if(lvl>=SKILL_MAX_LEVEL) break;
+      const cost = skillEnhanceCost(lvl);
+      if(itemCount(p,'skillShard')<cost){ toast('스킬의 파편이 부족합니다.','bad'); break; }
+      removeItem(p,'skillShard',cost);
+      p.skillLevels = p.skillLevels||{};
+      p.skillLevels[skillId] = lvl+1;
+      toast('스킬을 강화했습니다!','good');
+      saveGame(true); render();
+      break;
+    }
     case 'goto-inventory': state.modal='inventory'; render(); break;
     case 'open-blacksmith': state.modal='blacksmith'; render(); break;
     case 'open-shop': state.modal='shop'; render(); break;
@@ -2649,6 +2688,7 @@ function hydratePlayer(saved){
   saved.statPoints = saved.statPoints||0;
   saved.bonusStats = saved.bonusStats||{hp:0,mp:0,crit:0};
   saved.fishingRod = saved.fishingRod||false;
+  saved.skillLevels = saved.skillLevels||{};
   // legacy classes stored before this class type didn't exist are unaffected;
   // guard against a saved classKey no longer present in CLASSES (shouldn't happen, but stay safe)
   if(!CLASSES[saved.classKey]) saved.classKey = 'warrior';
