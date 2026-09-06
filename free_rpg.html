@@ -695,8 +695,8 @@ function zoneById(id){ return ZONES.find(z=>z.id===id); }
 // 중간 보스는 해당 지역 레벨 구간의 2/3 지점(절반을 넘는 지점)에 고정 등장한다.
 // 예) 속삭이는 숲(Lv.1-10) → 1 + (10-1)*2/3 = 7레벨
 function zoneMidBossLevel(zone){ return Math.round(zone.min + (zone.max-zone.min)*(2/3)); }
-// 진(眞)보스는 플레이어 레벨과 무관하게 해당 지역 최고 레벨 부근에 고정 등장한다.
-function zoneBossLevel(zone){ return zone.max + rndInt(3,4); }
+// 진(眞)보스는 플레이어 레벨과 무관하게 해당 지역 최고 레벨 기준 완전히 고정된 레벨로 등장한다.
+function zoneBossLevel(zone){ return zone.max + 4; }
 
 /* ---------- DATA: ITEMS ---------- */
 const WEAPONS = {
@@ -1869,7 +1869,7 @@ function renderWorldMap(){
           <div class="btn-row" style="margin-top:10px;">
             <button class="btn primary small" data-act="explore" data-zone="${z.id}">탐험하기</button>
             <button class="btn small" data-act="explore-midboss" data-zone="${z.id}">${midBossDone?'중간보스 재도전':'중간보스 도전'} ${z.midBoss.icon} <span class="tag">Lv.${zoneMidBossLevel(z)}</span></button>
-            <button class="btn small" data-act="explore-boss" data-zone="${z.id}">${bossDone?'보스 재도전':'보스 도전'} ${z.boss.icon} <span class="tag">Lv.${z.max+3}+</span></button>
+            <button class="btn small" data-act="explore-boss" data-zone="${z.id}">${bossDone?'보스 재도전':'보스 도전'} ${z.boss.icon} <span class="tag">Lv.${zoneBossLevel(z)}</span></button>
           </div>
         </div>`;
       }).join('')}
