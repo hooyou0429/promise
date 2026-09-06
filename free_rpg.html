@@ -927,6 +927,66 @@ function maxEnhanceLevel(p){
   return p.inventory.filter(i=>i.enhanceLevel!==undefined).reduce((m,i)=>Math.max(m,i.enhanceLevel),0);
 }
 
+/* ---------- GUILD QUESTS ---------- */
+const QUEST_TEMPLATES = [
+  {key:'monsterKills', name:'몬스터 사냥 의뢰', icon:'🗡️', unit:'마리 처치'},
+  {key:'midBossKills', name:'중간보스 토벌 의뢰', icon:'👹', unit:'회 처치'},
+  {key:'bossKills', name:'지역 보스 토벌 의뢰', icon:'👑', unit:'회 처치'},
+  {key:'goldEarned', name:'재물 조달 의뢰', icon:'💰', unit:'골드 획득'},
+  {key:'stagesCleared', name:'원정 진행 의뢰', icon:'🏆', unit:'스테이지 클리어'},
+];
+function newQuestStats(){ return {monsterKills:0, midBossKills:0, bossKills:0, goldEarned:0, stagesCleared:0}; }
+function generateQuestOffer(p){
+  const tpl = pick(QUEST_TEMPLATES);
+  const lvl = p.level||1;
+  let target, rewardGold;
+  switch(tpl.key){
+    case 'monsterKills': target = rndInt(8,18); rewardGold = Math.round((60+lvl*8) * (target/12)); break;
+    case 'midBossKills': target = rndInt(1,2); rewardGold = Math.round((250+lvl*15) * target); break;
+    case 'bossKills': target = 1; rewardGold = Math.round(500+lvl*25); break;
+    case 'goldEarned': target = rndInt(4,10)*100 + Math.round(lvl*20); rewardGold = Math.round(target*0.25); break;
+    case 'stagesCleared': target = rndInt(1,3); rewardGold = Math.round((150+lvl*10) * target); break;
+  }
+  return {
+    uid: newUid(), key: tpl.key, name: tpl.name, icon: tpl.icon, unit: tpl.unit,
+    target, rewardGold, rewardAccessory: Math.random()<0.4,
+  };
+}
+function ensureQuestOffers(p){
+  p.questStats = p.questStats || newQuestStats();
+  p.activeQuests = p.activeQuests || [];
+  p.questOffers = p.questOffers || [];
+  while(p.questOffers.length < 3) p.questOffers.push(generateQuestOffer(p));
+}
+function acceptQuest(p, uid){
+  ensureQuestOffers(p);
+  if(p.activeQuests.length>=3) return;
+  const idx = p.questOffers.findIndex(q=>q.uid===uid);
+  if(idx<0) return;
+  const offer = p.questOffers[idx];
+  p.activeQuests.push({...offer, startValue: p.questStats[offer.key]||0});
+  p.questOffers.splice(idx,1,generateQuestOffer(p));
+}
+function claimQuest(p, uid){
+  ensureQuestOffers(p);
+  const idx = p.activeQuests.findIndex(q=>q.uid===uid);
+  if(idx<0) return null;
+  const q = p.activeQuests[idx];
+  const cur = (p.questStats[q.key]||0) - q.startValue;
+  if(cur < q.target) return null;
+  p.activeQuests.splice(idx,1);
+  p.gold += q.rewardGold;
+  let itemName = null;
+  if(q.rewardAccessory){
+    const pool = ACCESSORIES.filter(a=>!a.exclusive);
+    const zoneIdx = clamp(Math.floor((p.level||1)/12), 0, pool.length-1);
+    const item = pool[zoneIdx];
+    p.inventory.push({uid:newUid(), tplId:item.id, enhanceLevel:0});
+    itemName = item.name;
+  }
+  return {rewardGold:q.rewardGold, itemName};
+}
+
 /* ---------- ENHANCEMENT TABLE ---------- */
 function enhanceSuccessRate(lvl){
   if(lvl<5) return .82;
@@ -1031,6 +1091,9 @@ function newPlayer(name, classKey){
     bonusStats:{hp:0,mp:0,crit:0},
     fishingRod:null,
     skillLevels:{},
+    questStats: newQuestStats(),
+    questOffers: [],
+    activeQuests: [],
   };
 }
 
@@ -1190,12 +1253,13 @@ function consumableTpl(tplId){ return CONSUMABLES[tplId] || FOODS[tplId]; }
 
 /* ---------- MONSTER SPAWN ---------- */
 function baseMonsterStats(level){
+  // 적이 전반적으로 조금 더 강해지도록 공격력/방어력/체력에 소폭의 배율을 적용한다.
   return {
-    hp: 16 + level*8.6,
-    atk: 4 + level*2.05,
+    hp: (16 + level*8.6) * 1.05,
+    atk: (4 + level*2.05) * 1.10,
     // 고레벨 몬스터일수록 방어력이 더 가파르게 오르도록 레벨 항을 추가.
     // 레벨1: 약 +13%, 레벨50: 약 +48%, 레벨150: 약 +57% (기존 선형식 대비 방어력 상승폭)
-    def: 2 + level*1.4 + Math.pow(level,1.35)*0.045,
+    def: (2 + level*1.4 + Math.pow(level,1.35)*0.045) * 1.08,
     spd: 4 + level*0.62,
     exp: 6 + level*3.3,
     gold: 4 + level*2.7,
@@ -1596,6 +1660,13 @@ function resolveVictory(){
   combatLog(`승리! 경험치 <span class="heal">${expGain}</span>${bonusNote}, 골드 <span class="heal">${c.enemy.gold}</span> 획득`, 'heal');
   logs.forEach(l=> combatLog(l,'info'));
 
+  // 길드 의뢰 진행도 갱신
+  p.questStats = p.questStats || newQuestStats();
+  p.questStats.goldEarned += c.enemy.gold;
+  if(c.enemy.bossTier==='final') p.questStats.bossKills++;
+  else if(c.enemy.bossTier==='mid') p.questStats.midBossKills++;
+  else p.questStats.monsterKills++;
+
   // drops
   const dropRoll = Math.random();
   if(c.enemy.bossTier==='mid'){
@@ -1646,9 +1717,11 @@ function resolveVictory(){
   if(c.origin==='stage'){
     const stageBonusGold = Math.round(c.enemy.gold*0.3);
     p.gold += stageBonusGold;
+    p.questStats.goldEarned += stageBonusGold;
     combatLog(`스테이지 클리어 보너스! 골드 <span class="heal">${stageBonusGold}</span> 추가 획득`, 'heal');
     if(c.stageNum === (p.stageProgress||0)+1){
       p.stageProgress = c.stageNum;
+      p.questStats.stagesCleared = (p.questStats.stagesCleared||0)+1;
       combatLog(`<b>스테이지 ${c.stageNum}</b> 클리어! 다음 스테이지가 열렸습니다.`, 'info');
       if(c.stageNum === 50){
         const exWeapon = EXCLUSIVE_WEAPONS[p.classKey];
@@ -1844,7 +1917,7 @@ function renderTown(){
         <button class="tile" data-act="goto-stages"><div class="tile-icon">🏆</div><div class="tile-name">스테이지</div><div class="tile-desc">1~20 스테이지를 순서대로 도전합니다.</div></button>
         <button class="tile" data-act="open-blacksmith"><img class="tile-img" src="${TOWN_IMAGES.blacksmith.thumb}" alt="대장간"/><div class="tile-name">대장간</div><div class="tile-desc">무기를 강화하고 판매합니다.</div></button>
         <button class="tile" data-act="open-shop"><img class="tile-img" src="${TOWN_IMAGES.shop.thumb}" alt="잡화점"/><div class="tile-name">잡화점</div><div class="tile-desc">방어구·장신구·물약을 사고 팝니다.</div></button>
-        <button class="tile" data-act="open-guild"><img class="tile-img" src="${TOWN_IMAGES.guild.thumb}" alt="모험가 길드"/><div class="tile-name">모험가 길드</div><div class="tile-desc">전직과 초월을 진행합니다.</div></button>
+        <button class="tile" data-act="open-guild"><img class="tile-img" src="${TOWN_IMAGES.guild.thumb}" alt="모험가 길드"/><div class="tile-name">모험가 길드</div><div class="tile-desc">전직·초월을 진행하고 의뢰를 수행합니다.</div></button>
         <button class="tile" data-act="open-board"><img class="tile-img" src="${TOWN_IMAGES.board.thumb}" alt="모험 기록"/><div class="tile-name">모험 기록</div><div class="tile-desc">업적을 확인하고 보상을 받습니다.</div></button>
         <button class="tile" data-act="goto-character"><div class="tile-icon">🧙</div><div class="tile-name">캐릭터 정보</div><div class="tile-desc">능력치와 스킬을 확인합니다.</div></button>
         <button class="tile" data-act="goto-inventory"><img class="tile-img" src="${TOWN_IMAGES.bag.thumb}" alt="가방"/><div class="tile-name">가방</div><div class="tile-desc">아이템과 장비를 관리합니다.</div></button>
@@ -2246,6 +2319,36 @@ function renderGuildModal(){
   } else {
     body += `<p class="empty-note">이미 최고 단계까지 초월했습니다. 세계 곳곳의 강자들에게 도전하세요.</p>`;
   }
+
+  ensureQuestOffers(p);
+  body += `<div class="divider"></div>`;
+  body += `<div class="section-title" style="font-size:1rem;">📜 길드 의뢰</div>`;
+  body += `<p class="section-sub">의뢰를 수락하고 조건을 달성해 골드와 장신구를 받으세요. (동시 수행 최대 3개)</p>`;
+  body += `<div class="section-sub">수행중인 의뢰</div>`;
+  if(p.activeQuests.length===0){
+    body += `<p class="empty-note">수행중인 의뢰가 없습니다.</p>`;
+  } else {
+    body += p.activeQuests.map(q=>{
+      const cur = clamp((p.questStats[q.key]||0) - q.startValue, 0, q.target);
+      const done = cur>=q.target;
+      return `<div class="item-row">
+        <div class="item-icon">${q.icon}</div>
+        <div class="item-body"><div class="item-name">${q.name}</div>
+        <div class="item-meta">${q.target} ${q.unit} · 진행 ${cur}/${q.target} · 보상 💰${fmt(q.rewardGold)}${q.rewardAccessory?' + 장신구':''}</div></div>
+        <div class="item-actions">${done? `<button class="btn small primary" data-act="claim-quest" data-uid="${q.uid}">완료 보상 받기</button>` : `<span class="tag">진행중</span>`}</div>
+      </div>`;
+    }).join('');
+  }
+  body += `<div class="section-sub" style="margin-top:10px;">수락 가능한 의뢰</div>`;
+  body += p.questOffers.map(q=>{
+    const full = p.activeQuests.length>=3;
+    return `<div class="item-row">
+      <div class="item-icon">${q.icon}</div>
+      <div class="item-body"><div class="item-name">${q.name}</div>
+      <div class="item-meta">${q.target} ${q.unit} · 보상 💰${fmt(q.rewardGold)}${q.rewardAccessory?' + 장신구':''}</div></div>
+      <div class="item-actions"><button class="btn small primary" data-act="accept-quest" data-uid="${q.uid}" ${full?'disabled':''}>수락</button></div>
+    </div>`;
+  }).join('');
   return body;
 }
 
@@ -2624,6 +2727,21 @@ function handle(act, ds){
       saveGame(true); render();
       break;
     }
+    case 'accept-quest': {
+      acceptQuest(p, ds.uid);
+      saveGame(true); render();
+      break;
+    }
+    case 'claim-quest': {
+      const res = claimQuest(p, ds.uid);
+      if(res){
+        toast(`의뢰 완료! 💰+${fmt(res.rewardGold)}${res.itemName?` · ${res.itemName} 획득`:''}`,'good');
+        saveGame(true); render();
+      } else {
+        toast('아직 조건을 달성하지 못했습니다.','bad');
+      }
+      break;
+    }
     case 'inn-rest': {
       const st = effectiveStats(p); p.hp=st.maxHp; p.mp=st.maxMp;
       toast('완전히 휴식했습니다.','good');
@@ -2728,6 +2846,9 @@ function hydratePlayer(saved){
   if(saved.fishingRod===true) saved.fishingRod = 'rodBasic';
   saved.fishingRod = saved.fishingRod || null;
   saved.skillLevels = saved.skillLevels||{};
+  saved.questStats = saved.questStats || newQuestStats();
+  saved.questOffers = saved.questOffers || [];
+  saved.activeQuests = saved.activeQuests || [];
   // legacy classes stored before this class type didn't exist are unaffected;
   // guard against a saved classKey no longer present in CLASSES (shouldn't happen, but stay safe)
   if(!CLASSES[saved.classKey]) saved.classKey = 'warrior';
