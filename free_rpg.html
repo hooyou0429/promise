@@ -486,6 +486,13 @@ const CLASSES = {
     ]
   }
 };
+// 초반 캐릭터가 지나치게 강하다는 피드백에 따라 각 직업의 1레벨 기초 능력치를 소폭 하향한다.
+// 레벨업 성장치(growth)는 그대로 두므로 레벨이 오를수록 이 하향의 영향은 옅어진다.
+Object.values(CLASSES).forEach(cls=>{
+  cls.base.atk = Math.round(cls.base.atk*0.90);
+  cls.base.def = Math.round(cls.base.def*0.90);
+  cls.base.hp = Math.round(cls.base.hp*0.92);
+});
 
 /* ---------- CHARACTER PORTRAITS (cropped from user-provided character sheets) ---------- */
 const PORTRAITS = {
