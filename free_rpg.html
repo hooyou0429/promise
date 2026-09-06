@@ -113,6 +113,9 @@ button:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--accent-str
 .bar-fill.mp{background:var(--mp);}
 .bar-fill.xp{background:var(--xp);}
 .bar-label{font-size:.62rem;color:var(--ink-dim);display:flex;justify-content:space-between;font-family:'JetBrains Mono',monospace;}
+.boss-bar-pips{display:flex;gap:4px;margin-top:4px;}
+.boss-bar-pips .pip{flex:1;height:5px;border-radius:3px;background:var(--hp);opacity:.35;}
+.boss-bar-pips .pip.done{background:var(--ink-dim);opacity:.25;}
 .topbar-actions{display:flex;gap:6px;flex-wrap:wrap;}
 .gold-chip{
   font-family:'JetBrains Mono',monospace;font-weight:700;font-size:.82rem;
@@ -1307,15 +1310,25 @@ const BOSS_TIERS = {
   mid:   {hp:2.3, atk:1.5,  def:1.44, exp:2.3, gold:2.7, spd:1.05, crit:10},
   final: {hp:4.4, atk:1.55, def:2.1, exp:5.5, gold:6.5, spd:1.15, crit:14},
 };
+// 로스트아크식 다단 체력바: 레벨이 높은 보스일수록 체력바를 2~3번 비워야 처치할 수 있다.
+function bossBarCount(level, tier){
+  if(!tier) return 1;
+  if(level>=100) return 3;
+  if(level>=50) return 2;
+  return 1;
+}
 function spawnMonsterFromTemplate(tpl, level, bossTier, zoneId){
   const b = baseMonsterStats(level);
   const tier = bossTier===true ? 'final' : (bossTier || null);
   // 일반 잡몹이 너무 약하다는 피드백에 따라 (보스가 아닌) 잡몹의 체력/방어력을 별도로 상향한다.
   const bm = tier ? BOSS_TIERS[tier] : {hp:1.2,atk:1,def:1.25,exp:1,gold:1,spd:1,crit:6};
+  const barCount = bossBarCount(level, tier);
+  const hpTotal = Math.round(b.hp*tpl.hp*bm.hp) * barCount;
   return {
     name:tpl.name, icon:tpl.icon, level, zoneId, isBoss:!!tier, bossTier:tier,
-    maxHp: Math.round(b.hp*tpl.hp*bm.hp),
-    hp: Math.round(b.hp*tpl.hp*bm.hp),
+    maxHp: hpTotal,
+    hp: hpTotal,
+    barCount, barsRemaining: barCount,
     atk: Math.round(b.atk*tpl.atk*bm.atk),
     def: Math.round(b.def*tpl.def*bm.def),
     spd: Math.round(b.spd*tpl.spd*bm.spd),
@@ -1602,7 +1615,18 @@ function statusLabel(type){ return type==='poison'?'중독 위험':(type==='burn
 
 function checkEnemyDeath(){
   const c = state.combat;
+  const enemy = c.enemy;
+  // 다단 체력바 보스: 구간을 하나 돌파할 때마다 알림을 남긴다.
+  if(enemy.barCount>1 && enemy.hp>0){
+    const segMax = enemy.maxHp/enemy.barCount;
+    const barsRemaining = Math.ceil(enemy.hp/segMax);
+    if(barsRemaining < enemy.barsRemaining){
+      enemy.barsRemaining = barsRemaining;
+      combatLog(`${enemy_name(c)}의 체력 구간을 돌파했다! (남은 구간 ${barsRemaining}/${enemy.barCount})`, 'info');
+    }
+  }
   if(c.enemy.hp<=0 && !c.over){
+    if(enemy.barCount>1) enemy.barsRemaining = 0;
     c.over = true; c.win = true;
     resolveVictory();
   }
@@ -2062,7 +2086,11 @@ function renderCombat(){
   if(!c) return `<div class="empty-note">전투 정보가 없습니다.</div>`;
   const p = state.player, st = effectiveStats(p);
   const cls = CLASSES[p.classKey];
-  const enemyPct = clamp(c.enemy.hp/c.enemy.maxHp*100,0,100);
+  const bossBars = c.enemy.barCount||1;
+  const segMax = c.enemy.maxHp/bossBars;
+  const barsRemaining = c.enemy.hp<=0 ? 0 : Math.ceil(c.enemy.hp/segMax);
+  const segHp = c.enemy.hp - segMax*Math.max(0, barsRemaining-1);
+  const enemyPct = bossBars>1 ? clamp((barsRemaining>0?segHp/segMax:0)*100,0,100) : clamp(c.enemy.hp/c.enemy.maxHp*100,0,100);
   const playerPct = clamp(p.hp/st.maxHp*100,0,100);
 
   if(c.over){
@@ -2094,8 +2122,9 @@ function renderCombat(){
     <div class="combatant ${c.enemyHitFx?'hit':''}">
       <div class="cicon">${c.enemy.icon}</div>
       <div class="cbody">
-        <div class="cname-row"><span><b>${c.enemy.name}</b> ${c.enemy.isBoss?'👑':''} <span class="tag font-mono">Lv.${c.enemy.level}</span></span><span class="font-mono">${fmt(c.enemy.hp)}/${fmt(c.enemy.maxHp)}</span></div>
+        <div class="cname-row"><span><b>${c.enemy.name}</b> ${c.enemy.isBoss?'👑':''} <span class="tag font-mono">Lv.${c.enemy.level}</span>${bossBars>1?` <span class="tag danger">×${bossBars}</span>`:''}</span><span class="font-mono">${bossBars>1?`구간 ${barsRemaining}/${bossBars}`:`${fmt(c.enemy.hp)}/${fmt(c.enemy.maxHp)}`}</span></div>
         <div class="bar-track"><div class="bar-fill hp" style="width:${enemyPct}%"></div></div>
+        ${bossBars>1?`<div class="boss-bar-pips">${Array.from({length:bossBars}).map((_,i)=> `<span class="pip ${i<(bossBars-barsRemaining)?'done':''}"></span>`).join('')}</div>`:''}
         ${c.enemy.special ? `<div class="status-row"><span class="tag accent" title="${escapeHtml(c.enemy.special.desc||'')}">✨ ${c.enemy.special.name}</span>${c.enemy.status?`<span class="tag danger" title="이 몬스터는 공격 시 상태이상을 걸 수 있습니다.">${statusIcon(c.enemy.status.type)} ${statusLabel(c.enemy.status.type)}</span>`:''}</div>` : (c.enemy.status?`<div class="status-row"><span class="tag danger" title="이 몬스터는 공격 시 상태이상을 걸 수 있습니다.">${statusIcon(c.enemy.status.type)} ${statusLabel(c.enemy.status.type)}</span></div>`:'')}
       </div>
     </div>
