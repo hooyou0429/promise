@@ -287,6 +287,11 @@ input[type=text]{
   border-radius:9px;padding:9px 12px;font-size:.95rem;width:100%;
 }
 input[type=text]:focus{outline:2px solid var(--accent);}
+.qty-input{
+  font-family:'JetBrains Mono',monospace;background:var(--panel);border:1px solid var(--line);color:var(--ink);
+  border-radius:7px;padding:4px 2px;font-size:.8rem;width:44px;text-align:center;flex:none;
+}
+.qty-input:focus{outline:2px solid var(--accent);}
 
 .empty-note{color:var(--ink-dim);font-size:.85rem;text-align:center;padding:18px 8px;}
 .footer-note{text-align:center;color:var(--ink-dim);font-size:.72rem;margin-top:22px;line-height:1.7;}
@@ -2324,6 +2329,7 @@ function renderShopModal(){
         <div class="item-meta">${tpl.atk?`ATK+${tpl.atk} `:''}${tpl.def?`DEF+${tpl.def} `:''}${tpl.crit?`CRIT+${tpl.crit} `:''}${tpl.spd?`SPD+${tpl.spd} `:''}${tpl.hp?`HP+${tpl.hp} `:''}${tpl.mp?`MP+${tpl.mp} `:''}${tpl.dodge?`회피+${Math.round(tpl.dodge*100)}% `:''}${tpl.expMul?`EXP+${Math.round(tpl.expMul*100)}% `:''}${tpl.desc||''}</div></div>
         <div class="item-actions">
           <span class="tag font-mono">💰${fmt(tpl.price)}</span>
+          <input type="number" class="qty-input" id="qty_${tpl.id}" min="1" max="99" value="1"/>
           <button class="btn small primary" data-act="buy" data-kind="${sec.kind}" data-id="${tpl.id}" ${p.gold<tpl.price?'disabled':''}>구매</button>
         </div>
       </div>
@@ -2766,11 +2772,14 @@ function handle(act, ds){
     }
     case 'buy': {
       const tpl = ds.kind==='equip' ? findEquipTpl(ds.id) : consumableTpl(ds.id);
-      if(p.gold<tpl.price){ toast('골드가 부족합니다.','bad'); break; }
-      p.gold -= tpl.price;
-      if(ds.kind==='equip'){ p.inventory.push({uid:newUid(), tplId:tpl.id, enhanceLevel:0}); }
-      else { addItem(p, tpl.id, 1); }
-      toast(`${tpl.name} 구매 완료`,'good');
+      const qtyInput = document.getElementById(`qty_${ds.id}`);
+      const qty = qtyInput ? clamp(parseInt(qtyInput.value,10)||1, 1, 99) : 1;
+      const cost = tpl.price*qty;
+      if(p.gold<cost){ toast('골드가 부족합니다.','bad'); break; }
+      p.gold -= cost;
+      if(ds.kind==='equip'){ for(let i=0;i<qty;i++) p.inventory.push({uid:newUid(), tplId:tpl.id, enhanceLevel:0}); }
+      else { addItem(p, tpl.id, qty); }
+      toast(`${tpl.name} x${qty} 구매 완료`,'good');
       saveGame(true); render();
       break;
     }
