@@ -1930,7 +1930,7 @@ function renderTown(){
       <div class="grid cols-3">
         <button class="tile" data-act="goto-worldmap"><img class="tile-img" src="${WORLD_MAP_IMAGE}" alt="세계 지도"/><div class="tile-name">세계 지도</div><div class="tile-desc">탐험할 지역을 선택합니다.</div></button>
         <button class="tile" data-act="goto-stages"><img class="tile-img" src="${STAGE_TROPHY_IMAGE}" alt="스테이지"/><div class="tile-name">스테이지</div><div class="tile-desc">1~20 스테이지를 순서대로 도전합니다.</div></button>
-        <button class="tile" data-act="open-blacksmith"><img class="tile-img" src="${TOWN_IMAGES.blacksmith.thumb}" alt="대장간"/><div class="tile-name">대장간</div><div class="tile-desc">무기를 강화하고 판매합니다.</div></button>
+        <button class="tile" data-act="open-blacksmith"><img class="tile-img" src="${TOWN_IMAGES.blacksmith.thumb}" alt="대장간"/><div class="tile-name">대장간</div><div class="tile-desc">무기를 강화·합성하고 판매합니다.</div></button>
         <button class="tile" data-act="open-shop"><img class="tile-img" src="${TOWN_IMAGES.shop.thumb}" alt="잡화점"/><div class="tile-name">잡화점</div><div class="tile-desc">방어구·장신구·물약을 사고 팝니다.</div></button>
         <button class="tile" data-act="open-guild"><img class="tile-img" src="${TOWN_IMAGES.guild.thumb}" alt="모험가 길드"/><div class="tile-name">모험가 길드</div><div class="tile-desc">전직·초월을 진행하고 의뢰를 수행합니다.</div></button>
         <button class="tile" data-act="open-board"><img class="tile-img" src="${TOWN_IMAGES.board.thumb}" alt="모험 기록"/><div class="tile-name">모험 기록</div><div class="tile-desc">업적을 확인하고 보상을 받습니다.</div></button>
@@ -2247,6 +2247,35 @@ function renderBlacksmithModal(){
       <div class="item-actions"><button class="btn small primary" data-act="enhance" data-uid="${inst.uid}" ${can?'':'disabled'}>강화</button></div>
     </div>`;
   }).join('') : `<p class="empty-note">강화할 수 있는 무기가 없습니다. 잡화점이나 전투에서 무기를 획득하세요.</p>`}
+  <div class="divider"></div>
+  <div class="section-title" style="font-size:1rem;">🔗 무기 합성</div>
+  <p class="section-sub">같은 무기를 2자루 이상 보유하면, 여분의 무기를 재료로 삼아 다른 한 자루의 강화 단계를 실패 없이 +1 올릴 수 있습니다. 재료로 사용한 무기는 사라집니다. (장착 중인 무기는 항상 남습니다)</p>
+  ${(()=>{
+    const groups = {};
+    weapons.forEach(inst=>{ (groups[inst.tplId] = groups[inst.tplId]||[]).push(inst); });
+    const fusable = Object.values(groups).filter(g=>g.length>=2);
+    if(!fusable.length) return `<p class="empty-note">합성 가능한 여분의 무기가 없습니다. 같은 무기를 2자루 이상 모아보세요.</p>`;
+    return fusable.map(g=>{
+      const tpl = findEquipTpl(g[0].tplId);
+      const equippedUid = p.equipped.weapon;
+      const equippedInGroup = g.find(i=>i.uid===equippedUid);
+      let keeper, material;
+      if(equippedInGroup){
+        keeper = equippedInGroup;
+        material = g.find(i=>i.uid!==equippedUid);
+      } else {
+        const sorted = [...g].sort((x,y)=>y.enhanceLevel-x.enhanceLevel);
+        keeper = sorted[0]; material = sorted[1];
+      }
+      const maxed = keeper.enhanceLevel>=15;
+      return `<div class="item-row">
+        <div class="item-icon">${tpl.icon}</div>
+        <div class="item-body"><div class="item-name">${tpl.name} <span class="tag">보유 x${g.length}</span></div>
+        <div class="item-meta">${maxed? '이미 최대 강화 단계입니다.' : `현재 최고 +${keeper.enhanceLevel} 무기에 여분 1자루를 합성해 +${keeper.enhanceLevel+1}(으)로`}</div></div>
+        <div class="item-actions"><button class="btn small primary" data-act="fuse-weapon" data-keep="${keeper.uid}" data-material="${material.uid}" ${maxed?'disabled':''}>합성</button></div>
+      </div>`;
+    }).join('');
+  })()}
   `;
 }
 
@@ -2716,6 +2745,18 @@ function handle(act, ds){
           toast('강화에 실패했습니다. 재료만 소모되었습니다.','bad');
         }
       }
+      saveGame(true); render();
+      break;
+    }
+    case 'fuse-weapon': {
+      const keep = p.inventory.find(i=>i.uid===ds.keep);
+      const material = p.inventory.find(i=>i.uid===ds.material);
+      if(!keep || !material || keep.uid===material.uid || keep.enhanceLevel>=15){ break; }
+      keep.enhanceLevel = Math.min(15, keep.enhanceLevel+1);
+      p.inventory = p.inventory.filter(i=>i.uid!==material.uid);
+      const tpl = findEquipTpl(keep.tplId);
+      toast(`${tpl.name} 합성 성공! 강화 +${keep.enhanceLevel}`,'good');
+      const st = effectiveStats(p); p.hp=Math.min(p.hp,st.maxHp); p.mp=Math.min(p.mp,st.maxMp);
       saveGame(true); render();
       break;
     }
