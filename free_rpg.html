@@ -1413,10 +1413,12 @@ function beginCombat(enemy, origin, introText, extra){
 }
 function combatLog(t, cls){ state.combat.log.push({t,cls:cls||''}); if(state.combat.log.length>60) state.combat.log.shift(); }
 
-function playerDamageRoll(power, ignoreDefPct, alwaysCrit, isMagic){
+function playerDamageRoll(power, ignoreDefPct, alwaysCrit, isMagic, hits){
   const p = state.player, st = effectiveStats(p);
   const enemy = state.combat.enemy;
-  const defUse = enemy.def * (1-(ignoreDefPct||0)) * (isMagic?0.75:1);
+  // 연타(다단히트) 스킬은 고정 방어 감소분을 타격 횟수로 나눠 적용한다.
+  // 그렇지 않으면 방어력이 매 타격마다 그대로 깎여 연타 스킬이 총 위력에 비해 크게 약해진다.
+  const defUse = (enemy.def * (1-(ignoreDefPct||0)) * (isMagic?0.75:1)) / (hits||1);
   let dmg = Math.max(1, (st.atk*power) - defUse*0.5);
   dmg *= rnd(.85,1.15);
   let crit = alwaysCrit || (Math.random()*100 < st.crit);
@@ -1508,7 +1510,7 @@ function playerAction(action){
       let total=0, anyCrit=false;
       for(let i=0;i<hits;i++){
         if(c.enemy.hp<=0) break;
-        const r = playerDamageRoll(skill.power*powerMul, skill.pierce||0, skill.alwaysCrit, skill.type==='magic');
+        const r = playerDamageRoll(skill.power*powerMul, skill.pierce||0, skill.alwaysCrit, skill.type==='magic', hits);
         if(skill.critBonus && Math.random()*100 < 30) r.dmg = Math.round(r.dmg*1.2);
         c.enemy.hp = clamp(c.enemy.hp - r.dmg, 0, c.enemy.maxHp);
         total += r.dmg; anyCrit = anyCrit||r.crit;
