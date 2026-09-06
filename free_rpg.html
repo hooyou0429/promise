@@ -1439,7 +1439,7 @@ function playerDamageRoll(power, ignoreDefPct, alwaysCrit, isMagic, hits){
   let dmg = Math.max(1, (st.atk*power) - defUse*0.5);
   dmg *= rnd(.85,1.15);
   let crit = alwaysCrit || (Math.random()*100 < st.crit);
-  if(crit) dmg *= 1.65;
+  if(crit) dmg *= 1.5;
   return {dmg:Math.round(dmg), crit};
 }
 function enemyDamageRoll(){
