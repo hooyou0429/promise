@@ -996,7 +996,8 @@ function enhanceSuccessRate(lvl){
   return .15;
 }
 function enhanceCost(lvl){
-  return {gold:Math.round(40*Math.pow(lvl+1,1.6)), stones:1+Math.floor(lvl/4)};
+  // 강화 골드 가격을 40% 인하 (기존 대비 0.6배).
+  return {gold:Math.round(40*Math.pow(lvl+1,1.6) * 0.6), stones:1+Math.floor(lvl/4)};
 }
 
 /* ---------- STATE ---------- */
@@ -1020,7 +1021,6 @@ function startFishingSession(baitId){
   state.fishing = {
     phase:'wait', baitId, rodId:rod.id,
     waitUntil: Date.now()+rndInt(1200,3200),
-    biteDeadline:0,
     fishPos:50, fishVel:0,
     barPos:35, barSize:rod.barSize, barVel:0,
     progress:0,
@@ -1037,12 +1037,10 @@ function fishTick(){
   if(!f || !p){ stopFishingLoop(); return; }
   const now = Date.now();
   if(f.phase==='wait'){
-    if(now>=f.waitUntil){ f.phase='bite'; f.biteDeadline = now+1300; }
+    // 챔질은 시간 제한 없이 한 번만 눌러도 성공한다 (입질을 놓쳐 실패하는 일이 없다).
+    if(now>=f.waitUntil){ f.phase='bite'; stopFishingLoop(); }
   } else if(f.phase==='bite'){
-    if(now>=f.biteDeadline){
-      f.phase='result'; f.resultGood=false; f.resultMsg='입질을 놓쳤습니다... 물고기가 도망갔습니다.';
-      stopFishingLoop();
-    }
+    // 사용자가 챔질 버튼을 누를 때까지 대기한다.
   } else if(f.phase==='reel'){
     const bait = CONSUMABLES[f.baitId] || CONSUMABLES.baitBasic;
     const rod = FISHING_RODS.find(r=>r.id===f.rodId) || FISHING_RODS[0];
