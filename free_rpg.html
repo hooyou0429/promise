@@ -302,6 +302,14 @@ input[type=text]:focus{outline:2px solid var(--accent);}
 .check-box{width:20px;height:20px;border-radius:6px;border:1px solid var(--line);flex:none;display:flex;align-items:center;justify-content:center;font-size:.7rem;margin-top:2px;}
 .check-box.done{background:var(--good);border-color:var(--good);color:#fff;}
 
+.fish-scene{display:flex;align-items:center;justify-content:center;min-height:120px;background:var(--panel-2);border:1px solid var(--line);border-radius:14px;margin-top:6px;}
+.fish-status{font-size:1rem;color:var(--ink-dim);text-align:center;padding:20px;}
+.fish-status.bite{color:var(--danger);font-weight:700;font-size:1.15rem;animation:fishBitePulse .5s ease-in-out infinite alternate;}
+@keyframes fishBitePulse{from{transform:scale(1);}to{transform:scale(1.08);}}
+.fish-meter{position:relative;height:220px;border:1px solid var(--line);border-radius:12px;background:linear-gradient(var(--mp-track),var(--panel-2));overflow:hidden;margin-top:8px;}
+.fish-meter-catchzone{position:absolute;left:6px;right:6px;background:rgba(63,125,74,.35);border:2px solid var(--good);border-radius:8px;}
+.fish-meter-fish{position:absolute;left:0;right:0;text-align:center;font-size:1.6rem;transform:translateY(-50%);}
+
 @media (prefers-reduced-motion: reduce){
   *{animation-duration:.01ms !important;animation-iteration-count:1 !important;transition-duration:.01ms !important;}
 }
@@ -687,6 +695,8 @@ function zoneById(id){ return ZONES.find(z=>z.id===id); }
 // 중간 보스는 해당 지역 레벨 구간의 2/3 지점(절반을 넘는 지점)에 고정 등장한다.
 // 예) 속삭이는 숲(Lv.1-10) → 1 + (10-1)*2/3 = 7레벨
 function zoneMidBossLevel(zone){ return Math.round(zone.min + (zone.max-zone.min)*(2/3)); }
+// 진(眞)보스는 플레이어 레벨과 무관하게 해당 지역 최고 레벨 부근에 고정 등장한다.
+function zoneBossLevel(zone){ return zone.max + rndInt(3,4); }
 
 /* ---------- DATA: ITEMS ---------- */
 const WEAPONS = {
@@ -841,7 +851,32 @@ const CONSUMABLES = {
   antidote:{id:'antidote',name:'해독제',icon:'🍃',price:20,type:'potion',cure:true,desc:'중독 상태를 치료한다.'},
   enhanceStone:{id:'enhanceStone',name:'강화석',icon:'💎',price:35,type:'material',desc:'무기 강화에 사용되는 재료.'},
   transcendEssence:{id:'transcendEssence',name:'초월의 정수',icon:'🌟',price:0,type:'material',desc:'보스만이 남기는 신비한 정수. 초월(3차 전직)에 필요하다.'},
+  baitBasic:{id:'baitBasic',name:'일반 낚시찌',icon:'🪱',price:8,type:'bait',difficulty:1,goldMul:1,desc:'평범한 낚시찌. 입질은 순하지만 큰 수확은 기대하기 어렵다.'},
+  baitSilver:{id:'baitSilver',name:'은빛 낚시찌',icon:'🔷',price:28,type:'bait',difficulty:1.6,goldMul:1.15,desc:'입질이 다소 거칠어지지만 더 좋은 것이 낚인다.'},
+  baitGold:{id:'baitGold',name:'황금 낚시찌',icon:'🟡',price:75,type:'bait',difficulty:2.3,goldMul:1.35,desc:'가장 사나운 손맛. 희귀한 보물이 낚일 확률이 크게 오른다.'},
 };
+const FISHING_ROD = {id:'fishingRod', name:'낚싯대', icon:'🎣', price:150, desc:'낚시를 하려면 반드시 필요한 도구. 한 번 구매하면 영구히 소유한다.'};
+// 낚시찌 등급별 확률표: [잡동사니, 물고기, 강화석, 물약, 전설의 황금잉어]
+const FISH_TABLES = {
+  baitBasic:  [0.40,0.40,0.11,0.07,0.02],
+  baitSilver: [0.24,0.46,0.16,0.10,0.04],
+  baitGold:   [0.10,0.40,0.24,0.14,0.12],
+};
+function rollFishCatch(p, baitId){
+  const bait = CONSUMABLES[baitId] || CONSUMABLES.baitBasic;
+  const weights = FISH_TABLES[baitId] || FISH_TABLES.baitBasic;
+  const goldMul = bait.goldMul||1;
+  const r = Math.random();
+  let acc=0, idx=weights.length-1;
+  for(let i=0;i<weights.length;i++){ acc+=weights[i]; if(r<acc){ idx=i; break; } }
+  switch(idx){
+    case 0: { const g=Math.round(rndInt(8,20)*goldMul); p.gold+=g; return `잡동사니를 낚아 팔았습니다. 💰+${g}`; }
+    case 1: { const g=Math.round(rndInt(18,42)*goldMul); p.gold+=g; return `싱싱한 물고기를 낚아 팔았습니다. 💰+${g}`; }
+    case 2: { addItem(p,'enhanceStone',1); return '강화석을 낚았습니다!'; }
+    case 3: { addItem(p,'hpPotionS',1); return '물속에서 물약을 건졌습니다!'; }
+    default: { p.inventory.push({uid:newUid(), tplId:'ac6', enhanceLevel:0}); return '전설의 황금잉어를 낚았습니다! 특별한 장신구를 얻었습니다!'; }
+  }
+}
 const FOODS = {
   bread:{id:'bread',name:'호밀빵',icon:'🍞',price:15,healPct:.15,desc:'즉시 최대 HP의 15%를 회복한다.'},
   stew:{id:'stew',name:'스태미나 스튜',icon:'🍲',price:60,buff:{atk:.15},battles:5,desc:'5전투 동안 공격력 +15%.'},
@@ -895,7 +930,67 @@ let state = {
   combat:null,
   currentZoneId:null,
   modal:null,
+  fishing:null,
 };
+let fishInterval = null;
+let fishPulling = false;
+function stopFishingLoop(){ if(fishInterval){ clearInterval(fishInterval); fishInterval=null; } }
+function startFishingSession(baitId){
+  const p = state.player;
+  if(!p.fishingRod){ toast('낚싯대가 필요합니다.','bad'); return; }
+  if(itemCount(p, baitId)<1){ toast('낚시찌가 부족합니다.','bad'); return; }
+  removeItem(p, baitId, 1);
+  state.fishing = {
+    phase:'wait', baitId,
+    waitUntil: Date.now()+rndInt(1200,3200),
+    biteDeadline:0,
+    fishPos:50, fishVel:0,
+    barPos:35, barSize:26, barVel:0,
+    progress:0,
+    resultMsg:null, resultGood:null,
+  };
+  saveGame(true);
+  stopFishingLoop();
+  fishInterval = setInterval(fishTick, 120);
+  render();
+}
+function fishTick(){
+  const f = state.fishing;
+  const p = state.player;
+  if(!f || !p){ stopFishingLoop(); return; }
+  const now = Date.now();
+  if(f.phase==='wait'){
+    if(now>=f.waitUntil){ f.phase='bite'; f.biteDeadline = now+1000; }
+  } else if(f.phase==='bite'){
+    if(now>=f.biteDeadline){
+      f.phase='result'; f.resultGood=false; f.resultMsg='입질을 놓쳤습니다... 물고기가 도망갔습니다.';
+      stopFishingLoop();
+    }
+  } else if(f.phase==='reel'){
+    const bait = CONSUMABLES[f.baitId] || CONSUMABLES.baitBasic;
+    const diff = bait.difficulty||1;
+    f.fishVel += (Math.random()-0.5)*3.2*diff;
+    f.fishVel = clamp(f.fishVel, -(5+diff), 5+diff);
+    f.fishPos += f.fishVel*0.5;
+    if(f.fishPos<4){ f.fishPos=4; f.fishVel=Math.abs(f.fishVel); }
+    if(f.fishPos>96){ f.fishPos=96; f.fishVel=-Math.abs(f.fishVel); }
+    f.barVel += fishPulling ? 1.6 : -1.9;
+    f.barVel = clamp(f.barVel, -6, 6);
+    f.barPos = clamp(f.barPos+f.barVel, 0, 100-f.barSize);
+    const overlap = f.fishPos >= f.barPos && f.fishPos <= f.barPos+f.barSize;
+    f.progress = clamp(f.progress + (overlap? 2.6 : -1.4), 0, 100);
+    if(f.progress>=100){
+      f.resultMsg = rollFishCatch(p, f.baitId);
+      f.phase='result'; f.resultGood=true;
+      stopFishingLoop();
+      saveGame(true);
+    } else if(f.progress<=0){
+      f.phase='result'; f.resultGood=false; f.resultMsg='물고기가 힘겨루기 끝에 줄을 끊고 도망갔습니다...';
+      stopFishingLoop();
+    }
+  }
+  render();
+}
 
 function newPlayer(name, classKey){
   return {
@@ -916,6 +1011,7 @@ function newPlayer(name, classKey){
     boostedSkills:[],
     statPoints:0,
     bonusStats:{hp:0,mp:0,crit:0},
+    fishingRod:false,
   };
 }
 
@@ -1112,7 +1208,7 @@ function spawnMonster(zone, bossTier){
   const p = state.player;
   let level, tpl;
   if(bossTier==='final' || bossTier===true){
-    level = clamp(p.level + rndInt(0,2), zone.min+3, zone.max+4);
+    level = zoneBossLevel(zone);
     tpl = zone.boss;
   } else if(bossTier==='mid'){
     level = zoneMidBossLevel(zone);
@@ -1559,6 +1655,10 @@ function consumeItemEffect(p, tplId, opts){
 /* ---------- RENDER ROOT ---------- */
 let _lastRenderedScreen = null;
 function render(){
+  if(state.modal!=='fishing'){
+    stopFishingLoop();
+    if(state.fishing && state.fishing.phase!=='result') state.fishing=null;
+  }
   const app = document.getElementById('app');
   let html = '';
   if(state.screen==='title') html = renderTitle();
@@ -1719,7 +1819,7 @@ function renderTown(){
         <button class="tile" data-act="open-food"><img class="tile-img" src="${TOWN_IMAGES.food.thumb}" alt="음식점"/><div class="tile-name">음식점</div><div class="tile-desc">전투에 도움이 되는 음식을 판매합니다.</div></button>
         <button class="tile" data-act="open-inn"><img class="tile-img" src="${TOWN_IMAGES.inn.thumb}" alt="여관"/><div class="tile-name">여관</div><div class="tile-desc">완전히 휴식하고 게임을 저장합니다.</div></button>
         <button class="tile" data-act="open-spa"><img class="tile-img" src="${TOWN_IMAGES.spa.thumb}" alt="온천"/><div class="tile-name">온천</div><div class="tile-desc">피로를 풀고 잠시 전 능력치를 올립니다.</div></button>
-        <button class="tile" data-act="open-fishing"><img class="tile-img" src="${TOWN_IMAGES.fishing.thumb}" alt="낚시터"/><div class="tile-name">낚시터</div><div class="tile-desc">한적하게 낚시를 하며 운을 시험합니다.</div></button>
+        <button class="tile" data-act="open-fishing"><img class="tile-img" src="${TOWN_IMAGES.fishing.thumb}" alt="낚시터"/><div class="tile-name">낚시터</div><div class="tile-desc">낚싯대와 낚시찌로 손맛 나는 낚시를 즐깁니다.</div></button>
         <button class="tile" data-act="open-casino"><img class="tile-img" src="${TOWN_IMAGES.casino.thumb}" alt="도박장"/><div class="tile-name">도박장</div><div class="tile-desc">골드를 걸고 배팅 승부를 겨룹니다.</div></button>
         <button class="tile" data-act="open-arena"><img class="tile-img" src="${TOWN_IMAGES.arena.thumb}" alt="투기장"/><div class="tile-name">투기장</div><div class="tile-desc">연승에 도전해 포상금을 노립니다.</div></button>
       </div>
@@ -1980,7 +2080,7 @@ function renderInventoryModal(){
     return `<div class="item-row">
       <div class="item-icon">${tpl.icon}</div>
       <div class="item-body"><div class="item-name">${tpl.name} <span class="tag">x${row.qty}</span></div><div class="item-meta">${tpl.desc}</div></div>
-      <div class="item-actions">${tpl.type!=='material'? `<button class="btn small primary" data-act="use-item" data-tpl="${row.tplId}">사용</button>`:''}</div>
+      <div class="item-actions">${(tpl.type!=='material' && tpl.type!=='bait')? `<button class="btn small primary" data-act="use-item" data-tpl="${row.tplId}">사용</button>`:''}</div>
     </div>`;
   }).join('') : `<p class="empty-note">보유한 소비 아이템이 없습니다.</p>`}
   `;
@@ -2020,8 +2120,32 @@ function renderShopModal(){
     {title:`무기 (${cls.weaponLabel})`, items:wlist, kind:'equip'},
     {title:'방어구', items:ARMORS, kind:'equip'},
     {title:'장신구', items:ACCESSORIES.filter(a=>!a.exclusive), kind:'equip'},
-    {title:'물약 & 재료', items:Object.values(CONSUMABLES).filter(c=>c.price>0), kind:'consumable'},
+    {title:'물약 & 재료', items:Object.values(CONSUMABLES).filter(c=>c.price>0 && c.type!=='bait'), kind:'consumable'},
   ];
+  const baitItems = Object.values(CONSUMABLES).filter(c=>c.type==='bait');
+  const rodOwned = !!p.fishingRod;
+  const fishingSection = `
+    <div class="section-sub" style="margin-top:10px;">낚시 도구</div>
+    <div class="item-row">
+      <div class="item-icon">${FISHING_ROD.icon}</div>
+      <div class="item-body"><div class="item-name">${FISHING_ROD.name}</div>
+      <div class="item-meta">${FISHING_ROD.desc}</div></div>
+      <div class="item-actions">
+        ${rodOwned? `<span class="tag good">보유중</span>` : `<span class="tag font-mono">💰${fmt(FISHING_ROD.price)}</span><button class="btn small primary" data-act="buy-rod" ${p.gold<FISHING_ROD.price?'disabled':''}>구매</button>`}
+      </div>
+    </div>
+    ${baitItems.map(tpl=>`
+      <div class="item-row">
+        <div class="item-icon">${tpl.icon}</div>
+        <div class="item-body"><div class="item-name">${tpl.name} <span class="tag">보유 x${itemCount(p,tpl.id)}</span></div>
+        <div class="item-meta">${tpl.desc}</div></div>
+        <div class="item-actions">
+          <span class="tag font-mono">💰${fmt(tpl.price)}</span>
+          <button class="btn small primary" data-act="buy" data-kind="consumable" data-id="${tpl.id}" ${p.gold<tpl.price?'disabled':''}>구매</button>
+        </div>
+      </div>
+    `).join('')}
+  `;
   return `<img class="facility-banner" src="${TOWN_IMAGES.shop.banner}" alt="잡화점"/>` + sections.map(sec=>`
     <div class="section-sub" style="margin-top:10px;">${sec.title}</div>
     ${sec.items.map(tpl=>`
@@ -2035,7 +2159,7 @@ function renderShopModal(){
         </div>
       </div>
     `).join('')}
-  `).join('<div class="divider"></div>');
+  `).join('<div class="divider"></div>') + '<div class="divider"></div>' + fishingSection;
 }
 
 function renderFoodModal(){
@@ -2107,11 +2231,64 @@ function renderBoardModal(){
 }
 
 function renderFishingModal(){
+  const p = state.player;
+  const f = state.fishing;
+  if(!p.fishingRod){
+    return `
+    <img class="facility-banner" src="${TOWN_IMAGES.fishing.banner}" alt="낚시터"/>
+    <p class="section-sub">낚시를 하려면 먼저 잡화점에서 낚싯대를 구매해야 합니다.</p>
+    <div class="item-row"><div class="item-icon">${FISHING_ROD.icon}</div><div class="item-body"><div class="item-name">${FISHING_ROD.name}</div><div class="item-meta">${FISHING_ROD.desc}</div></div><div class="item-actions"><span class="tag font-mono">💰${fmt(FISHING_ROD.price)}</span></div></div>
+    <div class="btn-row" style="margin-top:10px;"><button class="btn primary" data-act="open-shop">잡화점으로 이동</button></div>
+    `;
+  }
+  if(!f || f.phase==='result'){
+    const baits = Object.values(CONSUMABLES).filter(c=>c.type==='bait');
+    return `
+    <img class="facility-banner" src="${TOWN_IMAGES.fishing.banner}" alt="낚시터"/>
+    <p class="section-sub">낚시찌를 골라 낚시를 시작하세요. 입질이 오면 재빨리 챔질하고, 손맛을 느끼며 릴을 감아 물고기를 낚아보세요!</p>
+    ${f && f.phase==='result' ? `<div class="item-row" style="margin-bottom:10px;"><div class="item-icon">${f.resultGood?'🎉':'💧'}</div><div class="item-body"><div class="item-name">${f.resultGood?'낚시 성공':'놓쳤다...'}</div><div class="item-meta">${f.resultMsg}</div></div></div>` : ''}
+    <div class="section-sub">낚시찌 선택</div>
+    ${baits.map(b=>{
+      const qty = itemCount(p,b.id);
+      return `<div class="item-row">
+        <div class="item-icon">${b.icon}</div>
+        <div class="item-body"><div class="item-name">${b.name} <span class="tag">보유 x${qty}</span></div><div class="item-meta">${b.desc}</div></div>
+        <div class="item-actions"><button class="btn small primary" data-act="fish-start" data-bait="${b.id}" ${qty<1?'disabled':''}>낚시 시작</button></div>
+      </div>`;
+    }).join('')}
+    ${baits.every(b=>itemCount(p,b.id)<1) ? `<p class="empty-note">낚시찌가 없습니다. 잡화점에서 구매하세요.</p>` : ''}
+    <div class="btn-row" style="margin-top:6px;"><button class="btn small" data-act="open-shop">잡화점으로 이동</button></div>
+    `;
+  }
+  if(f.phase==='wait'){
+    return `
+    <img class="facility-banner" src="${TOWN_IMAGES.fishing.banner}" alt="낚시터"/>
+    <div class="fish-scene"><div class="fish-status">🎣 찌를 던지고 조용히 기다리는 중...</div></div>
+    <div class="btn-row" style="margin-top:10px;"><button class="btn danger small" data-act="fish-giveup">그만두기</button></div>
+    `;
+  }
+  if(f.phase==='bite'){
+    return `
+    <img class="facility-banner" src="${TOWN_IMAGES.fishing.banner}" alt="낚시터"/>
+    <div class="fish-scene"><div class="fish-status bite">❗ 입질이 왔다! 지금 챔질하세요!</div></div>
+    <div class="btn-row" style="margin-top:10px;"><button class="btn primary" data-act="fish-hook">챔질!</button></div>
+    `;
+  }
+  // phase === 'reel'
+  const fishTop = 100 - f.fishPos;
+  const barTop = 100 - f.barPos - f.barSize;
   return `
   <img class="facility-banner" src="${TOWN_IMAGES.fishing.banner}" alt="낚시터"/>
-  <p class="section-sub">한적한 호숫가에서 낚시를 즐겨보세요. 무엇이 걸릴지는 아무도 모릅니다. (무료)</p>
-  ${state.lastFishResult? `<div class="item-row"><div class="item-icon">🎣</div><div class="item-body"><div class="item-name">낚시 결과</div><div class="item-meta">${state.lastFishResult}</div></div></div>`:''}
-  <div class="btn-row" style="margin-top:10px;"><button class="btn primary" data-act="fish">낚시하기</button></div>
+  <p class="section-sub">버튼을 누르고 있으면 릴이 감기고, 손을 떼면 줄이 풀립니다. 초록 구간을 물고기에 맞춰 진행 막대를 채우세요!</p>
+  <div class="fish-meter">
+    <div class="fish-meter-catchzone" style="top:${barTop}%;height:${f.barSize}%;"></div>
+    <div class="fish-meter-fish" style="top:${fishTop}%;">🐟</div>
+  </div>
+  <div class="bar-track" style="margin-top:10px;"><div class="bar-fill xp" style="width:${f.progress}%;"></div></div>
+  <div class="btn-row" style="margin-top:10px;">
+    <button class="btn primary" data-hold-act="fish-pull">🎣 당기기 (누르고 있기)</button>
+    <button class="btn danger small" data-act="fish-giveup">포기하기</button>
+  </div>
   `;
 }
 function renderCasinoModal(){
@@ -2162,11 +2339,22 @@ function bindEvents(){
   document.querySelectorAll('[data-act]').forEach(el=>{
     el.addEventListener('click', onAction);
   });
+  document.querySelectorAll('[data-hold-act="fish-pull"]').forEach(el=>{
+    el.addEventListener('mousedown', ()=>{ fishPulling=true; });
+    el.addEventListener('touchstart', (e)=>{ e.preventDefault(); fishPulling=true; }, {passive:false});
+    el.addEventListener('mouseup', ()=>{ fishPulling=false; });
+    el.addEventListener('mouseleave', ()=>{ fishPulling=false; });
+    el.addEventListener('touchend', ()=>{ fishPulling=false; });
+    el.addEventListener('touchcancel', ()=>{ fishPulling=false; });
+  });
   const nameInput = document.getElementById('nameInput');
   if(nameInput){
     nameInput.addEventListener('input', e=>{ creationState.name = e.target.value; });
   }
 }
+document.addEventListener('mouseup', ()=>{ fishPulling=false; });
+document.addEventListener('touchend', ()=>{ fishPulling=false; });
+document.addEventListener('touchcancel', ()=>{ fishPulling=false; });
 
 function onAction(e){
   const el = e.currentTarget;
@@ -2382,16 +2570,37 @@ function handle(act, ds){
       break;
     }
     case 'inn-save': saveGame(false); break;
-    case 'fish': {
-      const roll = Math.random();
-      let msg;
-      if(roll<0.35){ const g=rndInt(8,20); p.gold+=g; msg=`잡동사니를 낚아 팔았습니다. 💰+${g}`; }
-      else if(roll<0.62){ const g=rndInt(15,35); p.gold+=g; msg=`물고기를 낚아 팔았습니다. 💰+${g}`; }
-      else if(roll<0.80){ addItem(p,'enhanceStone',1); msg='강화석을 낚았습니다!'; }
-      else if(roll<0.93){ addItem(p,'hpPotionS',1); msg='물속에서 물약을 건졌습니다!'; }
-      else { p.inventory.push({uid:newUid(), tplId:'ac6', enhanceLevel:0}); msg='전설의 황금잉어를 낚았습니다! 특별한 장신구를 얻었습니다!'; }
-      state.lastFishResult = msg;
+    case 'buy-rod': {
+      if(p.fishingRod) break;
+      if(p.gold<FISHING_ROD.price){ toast('골드가 부족합니다.','bad'); break; }
+      p.gold -= FISHING_ROD.price;
+      p.fishingRod = true;
+      toast('낚싯대를 구매했습니다!','good');
       saveGame(true); render();
+      break;
+    }
+    case 'fish-start': {
+      startFishingSession(ds.bait);
+      break;
+    }
+    case 'fish-hook': {
+      const f = state.fishing;
+      if(f && f.phase==='bite'){
+        f.phase='reel';
+        f.fishPos=50; f.fishVel=(Math.random()-0.5)*4;
+        f.barPos=35; f.barVel=0; f.progress=25;
+        stopFishingLoop();
+        fishInterval = setInterval(fishTick, 120);
+      }
+      render();
+      break;
+    }
+    case 'fish-giveup': {
+      stopFishingLoop();
+      if(state.fishing && state.fishing.phase!=='result'){
+        state.fishing.phase='result'; state.fishing.resultGood=false; state.fishing.resultMsg='낚시를 그만두었습니다.';
+      }
+      render();
       break;
     }
     case 'gamble': {
@@ -2439,6 +2648,7 @@ function hydratePlayer(saved){
   saved.boostedSkills = saved.boostedSkills||[];
   saved.statPoints = saved.statPoints||0;
   saved.bonusStats = saved.bonusStats||{hp:0,mp:0,crit:0};
+  saved.fishingRod = saved.fishingRod||false;
   // legacy classes stored before this class type didn't exist are unaffected;
   // guard against a saved classKey no longer present in CLASSES (shouldn't happen, but stay safe)
   if(!CLASSES[saved.classKey]) saved.classKey = 'warrior';
