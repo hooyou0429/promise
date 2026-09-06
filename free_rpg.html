@@ -857,6 +857,16 @@ const ACCESSORY_KINDS = [
   {key:'neck', label:'목걸이/브로치'},
   {key:'trinket', label:'기타 장신구'},
 ];
+// 펫: 한 번 구매하면 영구 소유하며, 소유한 펫 중 하나만 활성화해 효과를 받는다.
+// 가격이 높을수록 능력치 보너스와 회복 효과가 함께 커지는 사기성 있는 구성.
+const PETS = [
+  {id:'pet1',name:'다람쥐',icon:'🐿️',price:800,hp:30,desc:'착용 중 최대 HP +30.'},
+  {id:'pet2',name:'아기 늑대',icon:'🐺',price:2000,hp:60,mp:20,desc:'착용 중 최대 HP +60, 최대 MP +20.'},
+  {id:'pet3',name:'정령 고양이',icon:'🐱',price:4500,hp:100,mp:40,regenEvery:4,regenPct:0.05,desc:'최대 HP +100, 최대 MP +40. 4턴마다 최대 HP의 5% 회복.'},
+  {id:'pet4',name:'수호 그리폰',icon:'🦅',price:8000,hp:180,mp:70,atk:10,regenEvery:3,regenPct:0.08,desc:'최대 HP +180, 최대 MP +70, 공격력 +10. 3턴마다 최대 HP의 8% 회복.'},
+  {id:'pet5',name:'고대 드래곤',icon:'🐉',price:15000,hp:300,mp:120,atk:20,def:20,regenEvery:2,regenPct:0.12,desc:'최대 HP +300, 최대 MP +120, 공격력 +20, 방어력 +20. 2턴마다 최대 HP의 12% 회복.'},
+];
+function activePet(p){ return PETS.find(pt=>pt.id===p.activePetId) || null; }
 function allEquipTemplates(){
   const w = Object.values(WEAPONS).flat();
   return [...w, ...ARMORS, ...ACCESSORIES];
@@ -1109,6 +1119,8 @@ function newPlayer(name, classKey){
     questStats: newQuestStats(),
     questOffers: [],
     activeQuests: [],
+    pets: [],
+    activePetId: null,
   };
 }
 
@@ -1172,6 +1184,8 @@ function effectiveStats(p){
   if(a) def += a.tpl.def;
   let dodge=0;
   equippedAccessories(p).forEach(ac=>{ atk+=ac.tpl.atk||0; def+=ac.tpl.def||0; crit+=ac.tpl.crit||0; spd+=ac.tpl.spd||0; hp+=ac.tpl.hp||0; mp+=ac.tpl.mp||0; dodge+=ac.tpl.dodge||0; });
+  const pet = activePet(p);
+  if(pet){ hp+=pet.hp||0; mp+=pet.mp||0; atk+=pet.atk||0; def+=pet.def||0; }
 
   // 레벨업 스탯 포인트 투자분
   const bonus = p.bonusStats || {hp:0,mp:0,crit:0};
@@ -1406,7 +1420,7 @@ function beginCombat(enemy, origin, introText, extra){
     zoneId: enemy.zoneId, enemy, origin,
     log:[{t:introText, cls:'info'}],
     over:false, win:null, playerHitFx:false, enemyHitFx:false, fledAttempt:0,
-    pPoison:0, pPoisonPct:0.05, pBurn:0, pBurnPct:0.07, pStun:false,
+    pPoison:0, pPoisonPct:0.05, pBurn:0, pBurnPct:0.07, pStun:false, turnCount:0,
   }, extra||{});
   state.screen='combat';
   state.modal=null;
@@ -1468,6 +1482,17 @@ function playerAction(action){
   const p = state.player, st = effectiveStats(p);
   const cls = CLASSES[p.classKey];
   let usedTurn = true;
+
+  // 펫의 주기적 회복: 몇 턴마다 최대 HP의 일정 비율을 회복시킨다.
+  c.turnCount = (c.turnCount||0) + 1;
+  const petNow = activePet(p);
+  if(petNow && petNow.regenEvery && c.turnCount % petNow.regenEvery === 0 && p.hp < st.maxHp){
+    const heal = Math.round(st.maxHp*(petNow.regenPct||0));
+    if(heal>0){
+      p.hp = clamp(p.hp+heal, 0, st.maxHp);
+      combatLog(`${petNow.icon} <b>${petNow.name}</b>이(가) 체력을 <span class="heal">${heal}</span> 회복시켰다!`, 'heal');
+    }
+  }
 
   // 상태이상: 중독/화상은 플레이어 턴이 시작될 때마다 피해를 입힌다.
   if(c.pPoison>0){
@@ -1945,6 +1970,7 @@ function renderTown(){
         <button class="tile" data-act="open-board"><img class="tile-img" src="${TOWN_IMAGES.board.thumb}" alt="모험 기록"/><div class="tile-name">모험 기록</div><div class="tile-desc">업적을 확인하고 보상을 받습니다.</div></button>
         <button class="tile" data-act="goto-character"><div class="tile-icon">🧙</div><div class="tile-name">캐릭터 정보</div><div class="tile-desc">능력치와 스킬을 확인합니다.</div></button>
         <button class="tile" data-act="goto-inventory"><img class="tile-img" src="${TOWN_IMAGES.bag.thumb}" alt="가방"/><div class="tile-name">가방</div><div class="tile-desc">아이템과 장비를 관리합니다.</div></button>
+        <button class="tile" data-act="open-petshop"><div class="tile-icon">🐾</div><div class="tile-name">펫 상점</div><div class="tile-desc">펫을 데려와 다양한 능력을 얻습니다.</div></button>
       </div>
     </div>
     <div class="panel">
@@ -2095,7 +2121,7 @@ function renderCharacter(){
   const p = state.player, st = effectiveStats(p), cls = CLASSES[p.classKey];
   const skills = availableSkills(p);
   const nextSkill = cls.skills.find(s=>s.lvl>p.level || (s.tierReq && p.tier<s.tierReq));
-  const w = equippedTpl(p,'weapon'), a = equippedTpl(p,'armor'), accs = equippedAccessories(p);
+  const w = equippedTpl(p,'weapon'), a = equippedTpl(p,'armor'), accs = equippedAccessories(p), pet = activePet(p);
   const bonus = p.bonusStats || {hp:0,mp:0,crit:0};
   return `
   <div class="crumb"><button class="btn small" data-act="goto-town">← 마을로</button></div>
@@ -2126,6 +2152,10 @@ function renderCharacter(){
         const found = accs.find(ac=>ac.tpl.kind===k.key);
         return `<div class="tile"><div class="tile-icon">${found?found.tpl.icon:'⬜'}</div><div class="tile-name">${found?found.tpl.name:`${k.label} 없음`}</div></div>`;
       }).join('')}
+    </div>
+    <div class="section-sub" style="margin-top:10px;">펫</div>
+    <div class="grid cols-3">
+      <div class="tile"><div class="tile-icon">${pet?pet.icon:'⬜'}</div><div class="tile-name">${pet?pet.name:'펫 없음'}</div></div>
     </div>
   </div>
   <div class="panel">
@@ -2181,6 +2211,7 @@ function renderModal(){
   if(m==='casino') return modalWrap('🎲 도박장', renderCasinoModal());
   if(m==='spa') return modalWrap('♨️ 온천', renderSpaModal());
   if(m==='arena') return modalWrap('🏟️ 투기장', renderArenaModal());
+  if(m==='petshop') return modalWrap('🐾 펫 상점', renderPetShopModal());
   return '';
 }
 function modalWrap(title, body){
@@ -2406,6 +2437,28 @@ function renderGuildModal(){
       <div class="item-body"><div class="item-name">${q.name}</div>
       <div class="item-meta">${q.target} ${q.unit} · 보상 💰${fmt(q.rewardGold)}${q.rewardAccessory?' + 장신구':''}</div></div>
       <div class="item-actions"><button class="btn small primary" data-act="accept-quest" data-uid="${q.uid}" ${full?'disabled':''}>수락</button></div>
+    </div>`;
+  }).join('');
+  return body;
+}
+
+function renderPetShopModal(){
+  const p = state.player;
+  const cur = activePet(p);
+  let body = `<p class="section-sub">펫을 데려오면 전투 내내 능력치 보너스를 받고, 일부 펫은 몇 턴마다 체력을 자동으로 회복시켜 줍니다. 가격이 높을수록 효과가 훨씬 강력합니다. 한 번 구매한 펫은 영구히 소유하며, 언제든 무료로 활성 펫을 바꿀 수 있습니다.</p>`;
+  body += `<div class="item-row" style="margin-bottom:10px;"><div class="item-icon">${cur?cur.icon:'⬜'}</div><div class="item-body"><div class="item-name">현재 활성 펫: ${cur?cur.name:'없음'}</div>${cur?`<div class="item-meta">${cur.desc}</div>`:''}</div>${cur?`<div class="item-actions"><button class="btn small" data-act="unset-active-pet">해제</button></div>`:''}</div>`;
+  body += PETS.map(pet=>{
+    const owned = p.pets.includes(pet.id);
+    const active = p.activePetId===pet.id;
+    return `<div class="item-row" style="flex-wrap:wrap;">
+      <div class="item-icon">${pet.icon}</div>
+      <div class="item-body"><div class="item-name">${pet.name} ${active?'<span class="tag good">활성중</span>':''}</div>
+      <div class="item-meta">${pet.desc}</div></div>
+      <div class="item-actions">
+        ${owned
+          ? (active ? '' : `<button class="btn small primary" data-act="set-active-pet" data-id="${pet.id}">활성화</button>`)
+          : `<span class="tag font-mono">💰${fmt(pet.price)}</span><button class="btn small primary" data-act="buy-pet" data-id="${pet.id}" ${p.gold<pet.price?'disabled':''}>구매</button>`}
+      </div>
     </div>`;
   }).join('');
   return body;
@@ -2637,6 +2690,7 @@ function handle(act, ds){
     case 'open-casino': state.modal='casino'; render(); break;
     case 'open-spa': state.modal='spa'; render(); break;
     case 'open-arena': state.modal='arena'; render(); break;
+    case 'open-petshop': state.modal='petshop'; render(); break;
     case 'close-modal': state.modal=null; render(); break;
     case 'close-modal-bg': state.modal=null; render(); break;
 
@@ -2839,6 +2893,33 @@ function handle(act, ds){
       }
       break;
     }
+    case 'buy-pet': {
+      const pet = PETS.find(x=>x.id===ds.id);
+      if(!pet || p.pets.includes(pet.id)) break;
+      if(p.gold<pet.price){ toast('골드가 부족합니다.','bad'); break; }
+      p.gold -= pet.price;
+      p.pets.push(pet.id);
+      p.activePetId = pet.id;
+      const st = effectiveStats(p); p.hp=Math.min(p.hp,st.maxHp); p.mp=Math.min(p.mp,st.maxMp);
+      toast(`${pet.icon} ${pet.name}을(를) 데려왔습니다!`,'good');
+      saveGame(true); render();
+      break;
+    }
+    case 'set-active-pet': {
+      const pet = PETS.find(x=>x.id===ds.id);
+      if(!pet || !p.pets.includes(pet.id)) break;
+      p.activePetId = pet.id;
+      const st = effectiveStats(p); p.hp=Math.min(p.hp,st.maxHp); p.mp=Math.min(p.mp,st.maxMp);
+      toast(`${pet.icon} ${pet.name}(으)로 교체했습니다.`,'good');
+      saveGame(true); render();
+      break;
+    }
+    case 'unset-active-pet': {
+      p.activePetId = null;
+      const st = effectiveStats(p); p.hp=Math.min(p.hp,st.maxHp); p.mp=Math.min(p.mp,st.maxMp);
+      saveGame(true); render();
+      break;
+    }
     case 'inn-rest': {
       const st = effectiveStats(p); p.hp=st.maxHp; p.mp=st.maxMp;
       toast('완전히 휴식했습니다.','good');
@@ -2946,6 +3027,8 @@ function hydratePlayer(saved){
   saved.questStats = saved.questStats || newQuestStats();
   saved.questOffers = saved.questOffers || [];
   saved.activeQuests = saved.activeQuests || [];
+  saved.pets = saved.pets || [];
+  saved.activePetId = saved.activePetId || null;
   // 구버전 저장 데이터 호환: 장신구가 단일 슬롯(accessory)이었던 시절의 저장을 배열(accessories)로 변환.
   if(saved.equipped){
     if(saved.equipped.accessory !== undefined){
