@@ -885,7 +885,8 @@ const CONSUMABLES = {
   antidote:{id:'antidote',name:'해독제',icon:'🍃',price:20,type:'potion',cure:true,desc:'중독 상태를 치료한다.'},
   enhanceStone:{id:'enhanceStone',name:'강화석',icon:'💎',price:35,type:'material',desc:'무기 강화에 사용되는 재료.'},
   transcendEssence:{id:'transcendEssence',name:'초월의 정수',icon:'🌟',price:0,type:'material',desc:'보스만이 남기는 신비한 정수. 초월(3차 전직)에 필요하다.'},
-  skillShard:{id:'skillShard',name:'스킬의 파편',icon:'🧿',price:0,type:'material',desc:'몬스터가 드물게 남기는 신비한 파편. 스킬 강화에 사용된다.'},
+  skillShard:{id:'skillShard',name:'스킬의 파편',icon:'🧿',price:0,type:'material',desc:'몬스터가 드물게 남기는 신비한 파편. 스킬 강화(1~7단계)에 사용된다.'},
+  skillShardHigh:{id:'skillShardHigh',name:'상위 스킬의 파편',icon:'💫',price:0,type:'material',desc:'보스만이 남기는 응축된 파편. 스킬 강화 8~10단계에 사용된다.'},
   baitBasic:{id:'baitBasic',name:'일반 낚시찌',icon:'🪱',price:8,type:'bait',difficulty:0.85,goldMul:1,desc:'평범한 낚시찌. 입질은 순하지만 큰 수확은 기대하기 어렵다.'},
   baitSilver:{id:'baitSilver',name:'은빛 낚시찌',icon:'🔷',price:28,type:'bait',difficulty:1.4,goldMul:1.15,desc:'입질이 다소 거칠어지지만 더 좋은 것이 낚인다.'},
   baitGold:{id:'baitGold',name:'황금 낚시찌',icon:'🟡',price:75,type:'bait',difficulty:2.0,goldMul:1.35,desc:'가장 사나운 손맛. 희귀한 보물이 낚일 확률이 크게 오른다.'},
@@ -1467,10 +1468,13 @@ function decrementPersistentBuffs(p){
 function skillMpCost(skill, level){
   return skill.mp;
 }
-// 스킬 강화: 스킬의 파편을 사용해 스킬별로 최대 7단계까지 위력을 올릴 수 있다 (단계당 +8%).
-const SKILL_MAX_LEVEL = 7;
+// 스킬 강화: 스킬의 파편을 사용해 스킬별로 최대 10단계까지 위력을 올릴 수 있다 (단계당 +8%).
+// 7단계 이후(8~10단계)부터는 일반 파편 대신 상위 재료인 '상위 스킬의 파편'이 필요하다.
+const SKILL_MAX_LEVEL = 10;
+const SKILL_HIGH_TIER_FROM = 7;
 const SKILL_DMG_MULT = 0.5; // 특수공격(스킬) 위력 50% 감소
 function skillLevel(p, skillId){ return (p.skillLevels||{})[skillId] || 0; }
+function skillEnhanceMaterial(lvl){ return lvl>=SKILL_HIGH_TIER_FROM ? 'skillShardHigh' : 'skillShard'; }
 function skillEnhanceCost(lvl){ return lvl+1; }
 function skillPowerMul(p, skill){
   const boosted = (p.boostedSkills||[]).includes(skill.id);
@@ -1753,12 +1757,19 @@ function resolveVictory(){
   }
 
   // 스킬의 파편: 보스는 확정, 그 외 몬스터는 낮은 확률로 드랍한다.
+  // 상위 스킬의 파편(8~10단계용)은 진보스는 확정, 준보스는 낮은 확률로만 드랍하는 희귀 재료다.
   if(c.enemy.bossTier==='final'){
     addItem(p,'skillShard', rndInt(2,3));
     combatLog('진보스로부터 <b>스킬의 파편</b>을 얻었다!', 'info');
+    addItem(p,'skillShardHigh', rndInt(1,2));
+    combatLog('진보스로부터 <b>상위 스킬의 파편</b>을 얻었다!', 'info');
   } else if(c.enemy.bossTier==='mid'){
     addItem(p,'skillShard', 1);
     combatLog('중간 보스로부터 <b>스킬의 파편</b>을 얻었다!', 'info');
+    if(Math.random()<0.35){
+      addItem(p,'skillShardHigh', 1);
+      combatLog('중간 보스로부터 <b>상위 스킬의 파편</b>을 얻었다!', 'info');
+    }
   } else if(Math.random()<0.06){
     addItem(p,'skillShard',1);
     combatLog('<b>스킬의 파편</b>을 주웠다!', 'info');
@@ -2181,15 +2192,17 @@ function renderCharacter(){
     </div>
   </div>
   <div class="panel">
-    <div class="section-title" style="font-size:1rem;">보유 스킬 <span class="tag accent">🧿 스킬의 파편 x${itemCount(p,'skillShard')}</span></div>
-    <p class="section-sub">스킬의 파편으로 스킬 위력을 단계당 +8%, 최대 ${SKILL_MAX_LEVEL}단계까지 강화할 수 있습니다.</p>
+    <div class="section-title" style="font-size:1rem;">보유 스킬 <span class="tag accent">🧿 x${itemCount(p,'skillShard')}</span> <span class="tag accent">💫 x${itemCount(p,'skillShardHigh')}</span></div>
+    <p class="section-sub">스킬의 파편으로 스킬 위력을 단계당 +8%, 최대 ${SKILL_MAX_LEVEL}단계까지 강화할 수 있습니다. ${SKILL_HIGH_TIER_FROM}단계 이후부터는 보스가 드랍하는 상위 스킬의 파편(💫)이 필요합니다.</p>
     ${skills.map(s=>{
       const boosted = (p.boostedSkills||[]).includes(s.id);
       const lvl = skillLevel(p, s.id);
       const maxed = lvl>=SKILL_MAX_LEVEL;
+      const material = skillEnhanceMaterial(lvl);
+      const materialTpl = CONSUMABLES[material];
       const cost = skillEnhanceCost(lvl);
-      const can = !maxed && itemCount(p,'skillShard')>=cost;
-      return `<div class="skill-btn" style="flex-wrap:wrap;"><div><div class="sname">${boosted?'★ ':''}${s.name}${boosted?' <span class="tag accent">각성</span>':''} <span class="tag">강화 ${lvl}/${SKILL_MAX_LEVEL}</span></div><div class="sdesc">${s.desc}</div></div><div class="scost font-mono">MP ${skillMpCost(s, p.level)}</div><div class="item-actions">${maxed? `<span class="tag good">최대</span>` : `<button class="btn small primary" data-act="enhance-skill" data-id="${s.id}" ${can?'':'disabled'}>강화(🧿${cost})</button>`}</div></div>`;
+      const can = !maxed && itemCount(p,material)>=cost;
+      return `<div class="skill-btn" style="flex-wrap:wrap;"><div><div class="sname">${boosted?'★ ':''}${s.name}${boosted?' <span class="tag accent">각성</span>':''} <span class="tag">강화 ${lvl}/${SKILL_MAX_LEVEL}</span></div><div class="sdesc">${s.desc}</div></div><div class="scost font-mono">MP ${skillMpCost(s, p.level)}</div><div class="item-actions">${maxed? `<span class="tag good">최대</span>` : `<button class="btn small primary" data-act="enhance-skill" data-id="${s.id}" ${can?'':'disabled'}>강화(${materialTpl.icon}${cost})</button>`}</div></div>`;
     }).join('') || `<p class="empty-note">아직 배운 스킬이 없습니다.</p>`}
     ${nextSkill? `<p class="section-sub">다음 스킬: <b>${nextSkill.name}</b> (Lv.${nextSkill.lvl}${nextSkill.tierReq?`, 초월 필요`:''})</p>`:''}
   </div>
@@ -2671,9 +2684,10 @@ function handle(act, ds){
       const skillId = ds.id;
       const lvl = skillLevel(p, skillId);
       if(lvl>=SKILL_MAX_LEVEL) break;
+      const material = skillEnhanceMaterial(lvl);
       const cost = skillEnhanceCost(lvl);
-      if(itemCount(p,'skillShard')<cost){ toast('스킬의 파편이 부족합니다.','bad'); break; }
-      removeItem(p,'skillShard',cost);
+      if(itemCount(p,material)<cost){ toast(`${CONSUMABLES[material].name}이(가) 부족합니다.`,'bad'); break; }
+      removeItem(p,material,cost);
       p.skillLevels = p.skillLevels||{};
       p.skillLevels[skillId] = lvl+1;
       toast('스킬을 강화했습니다!','good');
