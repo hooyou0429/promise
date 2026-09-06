@@ -815,6 +815,8 @@ const EXCLUSIVE_WEAPONS = {
   brawler:{id:'wx-brawler',name:'나한의 금강권갑',icon:'🥊',atk:95,price:0,exclusive:true},
 };
 Object.keys(EXCLUSIVE_WEAPONS).forEach(key=>{ WEAPONS[key].push(EXCLUSIVE_WEAPONS[key]); });
+// 무기 구매 가격을 20% 인상.
+Object.values(WEAPONS).flat().forEach(w=>{ if(w.price>0) w.price = Math.round(w.price*1.2); });
 const ARMORS = [
   {id:'ar1',name:'천 로브',icon:'🥋',def:5,price:50},
   {id:'ar1b',name:'가죽 조끼',icon:'🦺',def:9,price:130},
@@ -826,22 +828,28 @@ const ARMORS = [
   {id:'ar4b',name:'왕실 근위대 갑주',icon:'🛡️',def:64,price:6800},
   {id:'ar5',name:'초월의 성역 갑주',icon:'🛡️',def:82,price:9800},
 ];
+// kind: 장신구 하위 슬롯 구분. 같은 kind는 하나만, 서로 다른 kind는 동시에 착용할 수 있다.
 const ACCESSORIES = [
-  {id:'ac1',name:'행운의 반지',icon:'💍',crit:4,price:220},
-  {id:'ac2',name:'질풍의 부츠',icon:'👢',spd:5,price:220},
-  {id:'ac3',name:'맹수의 목걸이',icon:'📿',atk:8,price:400},
-  {id:'ac4',name:'수호의 브로치',icon:'🎗️',def:8,price:400},
-  {id:'ac8',name:'생명의 목걸이',icon:'❤️',hp:80,price:500,desc:'착용 중 최대 HP +80.'},
-  {id:'ac9',name:'마나의 반지',icon:'💙',mp:40,price:500,desc:'착용 중 최대 MP +40.'},
-  {id:'ac10',name:'그림자망토',icon:'🧥',dodge:0.06,price:900,desc:'착용 중 회피율 +6%.'},
-  {id:'ac11',name:'전사의 팔찌',icon:'🧤',atk:14,hp:40,price:1800},
-  {id:'ac12',name:'현자의 로브 장식',icon:'📿',mp:60,crit:3,price:1800},
-  {id:'ac5',name:'초월자의 인장',icon:'💠',atk:10,def:10,crit:6,spd:6,price:5200},
-  {id:'ac13',name:'용맥의 부적',icon:'🔶',atk:20,def:20,price:3600},
-  {id:'ac14',name:'불사조의 깃털',icon:'🪶',hp:120,def:15,price:4800},
-  {id:'ac6',name:'황금잉어의 반지',icon:'🐟',crit:8,spd:4,price:0,exclusive:true},
-  {id:'ac7',name:'현자의 부엉이 눈',icon:'🦉',expMul:.2,price:3200,desc:'착용 중 획득 경험치 +20%.'},
-  {id:'ac15',name:'만물의 인장',icon:'♾️',atk:16,def:16,crit:10,spd:10,hp:100,mp:50,price:12000,desc:'모든 능력치가 고르게 상승하는 최상급 장신구.'},
+  {id:'ac1',name:'행운의 반지',icon:'💍',crit:4,price:220,kind:'ring'},
+  {id:'ac2',name:'질풍의 부츠',icon:'👢',spd:5,price:220,kind:'trinket'},
+  {id:'ac3',name:'맹수의 목걸이',icon:'📿',atk:8,price:400,kind:'neck'},
+  {id:'ac4',name:'수호의 브로치',icon:'🎗️',def:8,price:400,kind:'neck'},
+  {id:'ac8',name:'생명의 목걸이',icon:'❤️',hp:80,price:500,desc:'착용 중 최대 HP +80.',kind:'neck'},
+  {id:'ac9',name:'마나의 반지',icon:'💙',mp:40,price:500,desc:'착용 중 최대 MP +40.',kind:'ring'},
+  {id:'ac10',name:'그림자망토',icon:'🧥',dodge:0.06,price:900,desc:'착용 중 회피율 +6%.',kind:'trinket'},
+  {id:'ac11',name:'전사의 팔찌',icon:'🧤',atk:14,hp:40,price:1800,kind:'trinket'},
+  {id:'ac12',name:'현자의 로브 장식',icon:'📿',mp:60,crit:3,price:1800,kind:'neck'},
+  {id:'ac5',name:'초월자의 인장',icon:'💠',atk:10,def:10,crit:6,spd:6,price:5200,kind:'trinket'},
+  {id:'ac13',name:'용맥의 부적',icon:'🔶',atk:20,def:20,price:3600,kind:'trinket'},
+  {id:'ac14',name:'불사조의 깃털',icon:'🪶',hp:120,def:15,price:4800,kind:'trinket'},
+  {id:'ac6',name:'황금잉어의 반지',icon:'🐟',crit:8,spd:4,price:0,exclusive:true,kind:'ring'},
+  {id:'ac7',name:'현자의 부엉이 눈',icon:'🦉',expMul:.2,price:3200,desc:'착용 중 획득 경험치 +20%.',kind:'trinket'},
+  {id:'ac15',name:'만물의 인장',icon:'♾️',atk:16,def:16,crit:10,spd:10,hp:100,mp:50,price:12000,desc:'모든 능력치가 고르게 상승하는 최상급 장신구.',kind:'trinket'},
+];
+const ACCESSORY_KINDS = [
+  {key:'ring', label:'반지'},
+  {key:'neck', label:'목걸이/브로치'},
+  {key:'trinket', label:'기타 장신구'},
 ];
 function allEquipTemplates(){
   const w = Object.values(WEAPONS).flat();
@@ -1079,7 +1087,7 @@ function newPlayer(name, classKey){
       {tplId:'hpPotionS', qty:3},
       {tplId:'enhanceStone', qty:2},
     ],
-    equipped:{weapon:null,armor:null,accessory:null},
+    equipped:{weapon:null,armor:null,accessories:[]},
     battleBuffs:[],
     bossKills:{},
     midBossKills:{},
@@ -1129,6 +1137,14 @@ function equippedTpl(p, slot){
   if(!inst) return null;
   return {inst, tpl: findEquipTpl(inst.tplId)};
 }
+// 같은 kind가 아닌 장신구는 동시에 여러 개 착용할 수 있다.
+function equippedAccessories(p){
+  return (p.equipped.accessories||[]).map(uid=>{
+    const inst = p.inventory.find(i=>i.uid===uid);
+    if(!inst) return null;
+    return {inst, tpl: findEquipTpl(inst.tplId)};
+  }).filter(Boolean);
+}
 function weaponBonusAtk(inst, tpl){
   if(!tpl) return 0;
   const lvl = inst.enhanceLevel||0;
@@ -1147,9 +1163,8 @@ function effectiveStats(p){
   if(w) atk += weaponBonusAtk(w.inst, w.tpl);
   const a = equippedTpl(p,'armor');
   if(a) def += a.tpl.def;
-  const ac = equippedTpl(p,'accessory');
   let dodge=0;
-  if(ac){ atk+=ac.tpl.atk||0; def+=ac.tpl.def||0; crit+=ac.tpl.crit||0; spd+=ac.tpl.spd||0; hp+=ac.tpl.hp||0; mp+=ac.tpl.mp||0; dodge+=ac.tpl.dodge||0; }
+  equippedAccessories(p).forEach(ac=>{ atk+=ac.tpl.atk||0; def+=ac.tpl.def||0; crit+=ac.tpl.crit||0; spd+=ac.tpl.spd||0; hp+=ac.tpl.hp||0; mp+=ac.tpl.mp||0; dodge+=ac.tpl.dodge||0; });
 
   // 레벨업 스탯 포인트 투자분
   const bonus = p.bonusStats || {hp:0,mp:0,crit:0};
@@ -1650,8 +1665,7 @@ function enemyTurn(){
 
 function resolveVictory(){
   const c = state.combat, p = state.player, zone = zoneById(c.zoneId);
-  const acc = equippedTpl(p,'accessory');
-  const accExpMul = (acc && acc.tpl.expMul) || 0;
+  const accExpMul = equippedAccessories(p).reduce((s,ac)=>s+(ac.tpl.expMul||0),0);
   const buffExpMul = (p.battleBuffs||[]).reduce((s,b)=> s+(b.expMul||0), 0);
   const expMul = GLOBAL_EXP_MUL * (1 + accExpMul + buffExpMul);
   const expGain = Math.round(c.enemy.exp*expMul);
@@ -2072,7 +2086,7 @@ function renderCharacter(){
   const p = state.player, st = effectiveStats(p), cls = CLASSES[p.classKey];
   const skills = availableSkills(p);
   const nextSkill = cls.skills.find(s=>s.lvl>p.level || (s.tierReq && p.tier<s.tierReq));
-  const w = equippedTpl(p,'weapon'), a = equippedTpl(p,'armor'), ac = equippedTpl(p,'accessory');
+  const w = equippedTpl(p,'weapon'), a = equippedTpl(p,'armor'), accs = equippedAccessories(p);
   const bonus = p.bonusStats || {hp:0,mp:0,crit:0};
   return `
   <div class="crumb"><button class="btn small" data-act="goto-town">← 마을로</button></div>
@@ -2096,7 +2110,13 @@ function renderCharacter(){
     <div class="grid cols-3">
       <div class="tile"><div class="tile-icon">${w?w.tpl.icon:'⬜'}</div><div class="tile-name">${w?`${w.inst.awakened?'★ ':''}${w.tpl.name} +${w.inst.enhanceLevel}`:'무기 없음'}</div></div>
       <div class="tile"><div class="tile-icon">${a?a.tpl.icon:'⬜'}</div><div class="tile-name">${a?a.tpl.name:'방어구 없음'}</div></div>
-      <div class="tile"><div class="tile-icon">${ac?ac.tpl.icon:'⬜'}</div><div class="tile-name">${ac?ac.tpl.name:'장신구 없음'}</div></div>
+    </div>
+    <div class="section-sub" style="margin-top:10px;">장신구 (서로 다른 종류는 동시에 착용 가능)</div>
+    <div class="grid cols-3">
+      ${ACCESSORY_KINDS.map(k=>{
+        const found = accs.find(ac=>ac.tpl.kind===k.key);
+        return `<div class="tile"><div class="tile-icon">${found?found.tpl.icon:'⬜'}</div><div class="tile-name">${found?found.tpl.name:`${k.label} 없음`}</div></div>`;
+      }).join('')}
     </div>
   </div>
   <div class="panel">
@@ -2180,13 +2200,13 @@ function renderInventoryModal(){
     const tpl = findEquipTpl(inst.tplId);
     if(!tpl) return '';
     const slot = equipSlotOf(tpl);
-    const equipped = p.equipped[slot]===inst.uid;
+    const equipped = slot==='accessory' ? p.equipped.accessories.includes(inst.uid) : p.equipped[slot]===inst.uid;
     return `<div class="item-row">
       <div class="item-icon">${tpl.icon}</div>
       <div class="item-body"><div class="item-name">${itemDisplayName(inst,tpl)} ${equipped?'<span class="tag good">장착중</span>':''}</div>
-      <div class="item-meta">${slot==='weapon'?`ATK+${weaponBonusAtk(inst,tpl)}`:slot==='armor'?`DEF+${tpl.def}`:`보너스 스탯`}</div></div>
+      <div class="item-meta">${slot==='weapon'?`ATK+${weaponBonusAtk(inst,tpl)}`:slot==='armor'?`DEF+${tpl.def}`:`보너스 스탯${tpl.kind?` · ${(ACCESSORY_KINDS.find(k=>k.key===tpl.kind)||{}).label||tpl.kind}`:''}`}</div></div>
       <div class="item-actions">
-        ${equipped? `<button class="btn small" data-act="unequip" data-slot="${slot}">해제</button>` : `<button class="btn small primary" data-act="equip" data-uid="${inst.uid}">장착</button>`}
+        ${equipped? (slot==='accessory'? `<button class="btn small" data-act="unequip-accessory" data-uid="${inst.uid}">해제</button>` : `<button class="btn small" data-act="unequip" data-slot="${slot}">해제</button>`) : `<button class="btn small primary" data-act="equip" data-uid="${inst.uid}">장착</button>`}
         <button class="btn small danger" data-act="sell-equip" data-uid="${inst.uid}">판매</button>
       </div>
     </div>`;
@@ -2637,18 +2657,36 @@ function handle(act, ds){
       const inst = p.inventory.find(i=>i.uid===ds.uid);
       const tpl = findEquipTpl(inst.tplId);
       const slot = equipSlotOf(tpl);
-      p.equipped[slot] = inst.uid;
+      if(slot==='accessory'){
+        // 같은 kind로 이미 착용한 장신구가 있다면 교체하고, 다른 kind는 그대로 유지한다.
+        p.equipped.accessories = p.equipped.accessories.filter(uid=>{
+          const other = p.inventory.find(i=>i.uid===uid);
+          const otherTpl = other && findEquipTpl(other.tplId);
+          return !(otherTpl && otherTpl.kind===tpl.kind);
+        });
+        p.equipped.accessories.push(inst.uid);
+      } else {
+        p.equipped[slot] = inst.uid;
+      }
       const st = effectiveStats(p); p.hp=Math.min(p.hp,st.maxHp); p.mp=Math.min(p.mp,st.maxMp);
       saveGame(true); render();
       break;
     }
     case 'unequip': p.equipped[ds.slot]=null; saveGame(true); render(); break;
+    case 'unequip-accessory': {
+      p.equipped.accessories = p.equipped.accessories.filter(uid=>uid!==ds.uid);
+      saveGame(true); render();
+      break;
+    }
     case 'sell-equip': {
       const inst = p.inventory.find(i=>i.uid===ds.uid);
       const tpl = findEquipTpl(inst.tplId);
       const price = Math.round(tpl.price*0.4*(1+(inst.enhanceLevel||0)*0.15));
       p.gold += price;
-      Object.keys(p.equipped).forEach(k=>{ if(p.equipped[k]===ds.uid) p.equipped[k]=null; });
+      Object.keys(p.equipped).forEach(k=>{
+        if(k==='accessories') p.equipped.accessories = p.equipped.accessories.filter(uid=>uid!==ds.uid);
+        else if(p.equipped[k]===ds.uid) p.equipped[k]=null;
+      });
       p.inventory = p.inventory.filter(i=>i.uid!==ds.uid);
       toast(`${tpl.name} 판매: 💰${fmt(price)}`,'good');
       saveGame(true); render();
@@ -2851,6 +2889,14 @@ function hydratePlayer(saved){
   saved.questStats = saved.questStats || newQuestStats();
   saved.questOffers = saved.questOffers || [];
   saved.activeQuests = saved.activeQuests || [];
+  // 구버전 저장 데이터 호환: 장신구가 단일 슬롯(accessory)이었던 시절의 저장을 배열(accessories)로 변환.
+  if(saved.equipped){
+    if(saved.equipped.accessory !== undefined){
+      saved.equipped.accessories = saved.equipped.accessory ? [saved.equipped.accessory] : (saved.equipped.accessories||[]);
+      delete saved.equipped.accessory;
+    }
+    saved.equipped.accessories = saved.equipped.accessories || [];
+  }
   // legacy classes stored before this class type didn't exist are unaffected;
   // guard against a saved classKey no longer present in CLASSES (shouldn't happen, but stay safe)
   if(!CLASSES[saved.classKey]) saved.classKey = 'warrior';
