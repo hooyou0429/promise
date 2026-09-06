@@ -1451,8 +1451,8 @@ function decrementPersistentBuffs(p){
 function skillMpCost(skill, level){
   return skill.mp;
 }
-// 스킬 강화: 스킬의 파편을 사용해 스킬별로 최대 5단계까지 위력을 올릴 수 있다 (단계당 +8%).
-const SKILL_MAX_LEVEL = 5;
+// 스킬 강화: 스킬의 파편을 사용해 스킬별로 최대 7단계까지 위력을 올릴 수 있다 (단계당 +8%).
+const SKILL_MAX_LEVEL = 7;
 const SKILL_DMG_MULT = 0.5; // 특수공격(스킬) 위력 50% 감소
 function skillLevel(p, skillId){ return (p.skillLevels||{})[skillId] || 0; }
 function skillEnhanceCost(lvl){ return lvl+1; }
@@ -2150,7 +2150,7 @@ function renderCharacter(){
   </div>
   <div class="panel">
     <div class="section-title" style="font-size:1rem;">보유 스킬 <span class="tag accent">🧿 스킬의 파편 x${itemCount(p,'skillShard')}</span></div>
-    <p class="section-sub">스킬의 파편으로 스킬 위력을 단계당 +8%, 최대 5단계까지 강화할 수 있습니다.</p>
+    <p class="section-sub">스킬의 파편으로 스킬 위력을 단계당 +8%, 최대 ${SKILL_MAX_LEVEL}단계까지 강화할 수 있습니다.</p>
     ${skills.map(s=>{
       const boosted = (p.boostedSkills||[]).includes(s.id);
       const lvl = skillLevel(p, s.id);
