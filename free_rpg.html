@@ -1859,6 +1859,8 @@ function render(){
     if(state.fishing && state.fishing.phase!=='result') state.fishing=null;
   }
   const app = document.getElementById('app');
+  const prevModalEl = app.querySelector('.modal');
+  const modalScrollTop = prevModalEl ? prevModalEl.scrollTop : 0;
   let html = '';
   if(state.screen==='title') html = renderTitle();
   else if(state.screen==='create') html = renderCreate();
@@ -1873,6 +1875,10 @@ function render(){
   if(state.screen !== _lastRenderedScreen){
     window.scrollTo(0,0);
     _lastRenderedScreen = state.screen;
+  }
+  if(state.modal){
+    const modalEl = app.querySelector('.modal');
+    if(modalEl) modalEl.scrollTop = modalScrollTop;
   }
 }
 
