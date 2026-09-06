@@ -995,22 +995,22 @@ const FOODS = {
 // 한번 배우면(인벤토리에서 "배우기") 그 캐릭터가 영구적으로 사용할 수 있는 전투 행동이 된다.
 // 다른 행동과 마찬가지로 한 턴에 한 번만 사용할 수 있을 뿐, 총 사용 횟수 제한은 없다.
 const SKILL_BOOKS = [
-  {id:'sb1',name:'명상',icon:'🧘',type:'buff',buff:{def:0.2},dur:3,healSelf:0.25,desc:'즉시 최대 HP의 25%를 회복하고, 3턴간 방어력이 20% 상승한다.'},
-  {id:'sb2',name:'기습',icon:'🗡️',type:'phys',power:1.0,selfBuff:{atk:2.0},selfBuffDur:1,desc:'허를 찔러 이번 턴 공격력이 200% 증가한 상태로 강습한다.'},
-  {id:'sb3',name:'연막',icon:'💨',type:'buff',buff:{dodge:0.3},dur:2,desc:'2턴간 회피율이 30% 상승한다.'},
-  {id:'sb4',name:'투기 충전',icon:'🔥',type:'buff',buff:{atk:0.4},dur:3,desc:'3턴간 공격력이 40% 상승한다.'},
-  {id:'sb5',name:'철벽 태세',icon:'🛡️',type:'buff',buff:{def:0.45},dur:3,desc:'3턴간 방어력이 45% 상승한다.'},
-  {id:'sb6',name:'신속한 발놀림',icon:'👟',type:'buff',buff:{spd:0.5},dur:2,desc:'2턴간 속도가 50% 상승한다.'},
-  {id:'sb7',name:'정신 집중',icon:'🎯',type:'buff',buff:{crit:0.2},dur:3,desc:'3턴간 치명타 확률이 20%p 상승한다.'},
-  {id:'sb8',name:'심호흡',icon:'🌬️',type:'buff',buff:{},healSelf:0.35,desc:'즉시 최대 HP의 35%를 회복한다.'},
-  {id:'sb9',name:'광전사의 함성',icon:'💢',type:'buff',buff:{atk:0.6,def:-0.2},dur:2,desc:'2턴간 공격력이 60% 상승하지만 방어력이 20% 하락한다.'},
-  {id:'sb10',name:'흡혈의 일격',icon:'🩸',type:'phys',power:1.2,lifesteal:0.4,desc:'적을 베어 입힌 피해의 40%만큼 HP를 흡수한다.'},
-  {id:'sb11',name:'회심의 일격',icon:'💥',type:'phys',power:1.3,alwaysCrit:true,desc:'빈틈을 정확히 노려 반드시 치명타가 터진다.'},
-  {id:'sb12',name:'그림자 밟기',icon:'👤',type:'buff',buff:{dodge:0.25,spd:0.2},dur:2,desc:'2턴간 회피율 +25%, 속도 +20%.'},
-  {id:'sb13',name:'결의의 외침',icon:'📣',type:'buff',buff:{atk:0.25,crit:0.15},dur:3,desc:'3턴간 공격력 +25%, 치명타 확률 +15%p.'},
-  {id:'sb14',name:'재생의 주문',icon:'💚',type:'buff',buff:{},healSelf:0.4,desc:'즉시 최대 HP의 40%를 회복한다.'},
-  {id:'sb15',name:'방패 가르기',icon:'🔨',type:'phys',power:1.1,pierce:0.3,desc:'적의 방어를 30% 무시하고 강타한다.'},
-  {id:'sb16',name:'궁극의 회피술',icon:'🌀',type:'buff',buff:{dodge:0.5},dur:1,desc:'1턴간 회피율이 50%로 크게 상승한다.'},
+  {id:'sb1',name:'명상',icon:'🧘',price:5000,type:'buff',buff:{def:0.2},dur:3,healSelf:0.25,desc:'즉시 최대 HP의 25%를 회복하고, 3턴간 방어력이 20% 상승한다.'},
+  {id:'sb2',name:'기습',icon:'🗡️',price:8000,type:'phys',power:1.0,selfBuff:{atk:2.0},selfBuffDur:1,desc:'허를 찔러 이번 턴 공격력이 200% 증가한 상태로 강습한다.'},
+  {id:'sb3',name:'연막',icon:'💨',price:4000,type:'buff',buff:{dodge:0.3},dur:2,desc:'2턴간 회피율이 30% 상승한다.'},
+  {id:'sb4',name:'투기 충전',icon:'🔥',price:4500,type:'buff',buff:{atk:0.4},dur:3,desc:'3턴간 공격력이 40% 상승한다.'},
+  {id:'sb5',name:'철벽 태세',icon:'🛡️',price:4500,type:'buff',buff:{def:0.45},dur:3,desc:'3턴간 방어력이 45% 상승한다.'},
+  {id:'sb6',name:'신속한 발놀림',icon:'👟',price:4000,type:'buff',buff:{spd:0.5},dur:2,desc:'2턴간 속도가 50% 상승한다.'},
+  {id:'sb7',name:'정신 집중',icon:'🎯',price:5000,type:'buff',buff:{crit:0.2},dur:3,desc:'3턴간 치명타 확률이 20%p 상승한다.'},
+  {id:'sb8',name:'심호흡',icon:'🌬️',price:3500,type:'buff',buff:{},healSelf:0.35,desc:'즉시 최대 HP의 35%를 회복한다.'},
+  {id:'sb9',name:'광전사의 함성',icon:'💢',price:5500,type:'buff',buff:{atk:0.6,def:-0.2},dur:2,desc:'2턴간 공격력이 60% 상승하지만 방어력이 20% 하락한다.'},
+  {id:'sb10',name:'흡혈의 일격',icon:'🩸',price:6000,type:'phys',power:1.2,lifesteal:0.4,desc:'적을 베어 입힌 피해의 40%만큼 HP를 흡수한다.'},
+  {id:'sb11',name:'회심의 일격',icon:'💥',price:6500,type:'phys',power:1.3,alwaysCrit:true,desc:'빈틈을 정확히 노려 반드시 치명타가 터진다.'},
+  {id:'sb12',name:'그림자 밟기',icon:'👤',price:5000,type:'buff',buff:{dodge:0.25,spd:0.2},dur:2,desc:'2턴간 회피율 +25%, 속도 +20%.'},
+  {id:'sb13',name:'결의의 외침',icon:'📣',price:5500,type:'buff',buff:{atk:0.25,crit:0.15},dur:3,desc:'3턴간 공격력 +25%, 치명타 확률 +15%p.'},
+  {id:'sb14',name:'재생의 주문',icon:'💚',price:4000,type:'buff',buff:{},healSelf:0.4,desc:'즉시 최대 HP의 40%를 회복한다.'},
+  {id:'sb15',name:'방패 가르기',icon:'🔨',price:6000,type:'phys',power:1.1,pierce:0.3,desc:'적의 방어를 30% 무시하고 강타한다.'},
+  {id:'sb16',name:'궁극의 회피술',icon:'🌀',price:7000,type:'buff',buff:{dodge:0.5},dur:1,desc:'1턴간 회피율이 50%로 크게 상승한다.'},
 ];
 function skillBookTpl(id){ return SKILL_BOOKS.find(b=>b.id===id); }
 
@@ -1218,6 +1218,32 @@ function grantStarterGear(p){
   const inst = {uid:newUid(), tplId:wtpl.id, enhanceLevel:0};
   p.inventory.push(inst);
   p.equipped.weapon = inst.uid;
+}
+
+// 운영자 모드: 캐릭터 생성 시 이름을 '201121'로 입력하면 모든 진행 요소를 최대치로 채운
+// 치트 캐릭터로 시작한다. 골드/레벨/전직/장비/장신구/스킬 강화/스킬북을 전부 최대로 지급한다.
+const ADMIN_MODE_NAME = '201121';
+function applyAdminMode(p){
+  const cls = CLASSES[p.classKey];
+  p.gold = 100000000;
+  p.level = MAX_LEVEL;
+  p.tier = 2;
+  p.exp = 0;
+  p.statPoints = 0;
+  p.bonusStats = {hp:50, mp:50, crit:50};
+  p.skillLevels = {};
+  p.boostedSkills = [];
+  cls.skills.forEach(s=>{ p.skillLevels[s.id] = SKILL_MAX_LEVEL; p.boostedSkills.push(s.id); });
+  p.learnedSkillBooks = SKILL_BOOKS.map(s=>s.id);
+  // 소비 아이템(포션 등)은 그대로 두고, 장비류만 전부 새로 지급한다.
+  p.inventory = p.inventory.filter(i=>i.enhanceLevel===undefined);
+  const weaponInsts = WEAPONS[cls.weaponType].map(w=>({uid:newUid(), tplId:w.id, enhanceLevel:15, awakened:true, fusionStars:5}));
+  const armorInsts = ARMORS.map(a=>({uid:newUid(), tplId:a.id, enhanceLevel:15, awakened:true}));
+  const accInsts = ACCESSORIES.map(a=>({uid:newUid(), tplId:a.id, enhanceLevel:0}));
+  p.inventory.push(...weaponInsts, ...armorInsts, ...accInsts);
+  p.equipped.weapon = weaponInsts[weaponInsts.length-1].uid;
+  p.equipped.armor = armorInsts[armorInsts.length-1].uid;
+  p.equipped.accessories = accInsts.map(a=>a.uid);
 }
 
 /* ---------- STAT CALCULATION ---------- */
@@ -2514,6 +2540,7 @@ function renderShopModal(){
     {title:'방어구', items:ARMORS, kind:'equip'},
     {title:'장신구', items:ACCESSORIES.filter(a=>!a.exclusive), kind:'equip'},
     {title:'물약 & 재료', items:Object.values(CONSUMABLES).filter(c=>c.price>0 && c.type!=='bait'), kind:'consumable'},
+    {title:'스킬북 (비싸지만 한 번 배우면 영구 사용 가능)', items:SKILL_BOOKS, kind:'skillbook'},
   ];
   const baitItems = Object.values(CONSUMABLES).filter(c=>c.type==='bait');
   const rodOwnedIdx = fishingRodTierIndex(p);
@@ -2831,11 +2858,13 @@ function handle(act, ds){
       const name = (nameInput? nameInput.value : creationState.name).trim() || '이름없는 모험가';
       const np = newPlayer(name, creationState.classKey);
       grantStarterGear(np);
+      if(name===ADMIN_MODE_NAME) applyAdminMode(np);
       ensureHpMpInit(np);
       state.player = np;
       state.screen = 'town';
       saveGame(true);
       render();
+      if(name===ADMIN_MODE_NAME) toast('운영자 모드로 시작합니다!','good');
       break;
     }
     case 'goto-town': state.screen='town'; state.modal=null; render(); break;
@@ -3031,7 +3060,7 @@ function handle(act, ds){
       break;
     }
     case 'buy': {
-      const tpl = ds.kind==='equip' ? findEquipTpl(ds.id) : consumableTpl(ds.id);
+      const tpl = ds.kind==='equip' ? findEquipTpl(ds.id) : (ds.kind==='skillbook' ? skillBookTpl(ds.id) : consumableTpl(ds.id));
       const qtyInput = document.getElementById(`qty_${ds.id}`);
       const qty = qtyInput ? clamp(parseInt(qtyInput.value,10)||1, 1, 99) : 1;
       const cost = tpl.price*qty;
